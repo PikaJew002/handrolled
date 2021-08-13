@@ -25,12 +25,12 @@ If you want more info on the dependencies that were used, check out the `compose
 # Usage
 
 To use this framework and get the most dope experience, I recommend using the Front Controller pattern;
-Simply put, all requests for your application should be routed through your `index.php` in your web root directory; I favor using a directory one level above your project root (`public_html`, `public`, etc); You will need to configure your web server to use `/{project_dir}/{public_dir}/index.php` as your single entry point to your application; The Laravel docs have a good sample Nginx configuration that is a great starting place for configuring Nginx for the Front Controller pattern in PHP;
+Simply put, all requests for your application should be routed through your `index.php` in your web root directory; I favor using a directory one level above your project root (`public_html`, `public`, etc); You will need to configure your web server to use `{project_dir}/{public_dir}/index.php` as your single entry point to your application; The Laravel docs have a good sample Nginx configuration that is a great starting place for configuring Nginx for the Front Controller pattern in PHP;
 
-Your `/{project_dir}/{public_dir}/index.php` file should look something like this:
+Your `{project_dir}/{public_dir}/index.php` file should look something like this:
 
 ```php
-// /{project_dir}/{public_dir}/index.php
+// {project_dir}/{public_dir}/index.php
 require __DIR__.'/../vendor/autoload.php';
 
 $app = new \PikaJew002\Handrolled\Application\Application();
@@ -49,7 +49,7 @@ $response->render();
 I find this to be a bit cluttered, so my personal preference is to extract some of the set up into a boot file such as `/{project_dir}/boot/boot.php` and require it into my `/{project_dir}/{public_dir}/index.php` file like so:
 
 ```php
-//{project_dir}/boot/boot.php
+// {project_dir}/boot/boot.php
 $app = new \PikaJew002\Handrolled\Application\Application();
 
 $app->bootConfig(realpath(__DIR__.'/../config/'));
@@ -60,7 +60,7 @@ $app->bootDatabase();
 
 return $app;
 
-// /{project_dir}/{public_dir}/index.php
+// {project_dir}/{public_dir}/index.php
 require __DIR__.'/../vendor/autoload.php';
 
 $app = require __DIR__.'/../boot/boot.php';
@@ -91,7 +91,7 @@ At this time MySQL and PostgreSQL are the only ones supported; See the PHP PDO d
 The `config` directory must have at least have `database.php` which should look like this:
 
 ```php
-// /config/database.php
+// {project_dir}/config/database.php
 return [
     'mysql' => [
         'host' => $_ENV['DB_HOST'],
@@ -106,10 +106,10 @@ This, by default, sets the required environment variables to connect to a local 
 
 ## routes/api.php
 
-The `/routes/api.php` file should look something like this:
+The `routes/api.php` file should look something like this:
 
 ```php
-// /routes/api.php
+// {project_dir}/routes/api.php
 use App\Http\Controllers\UsersController;
 use FastRoute\RouteCollector;
 use function FastRoute\simpleDispatcher;
@@ -140,7 +140,7 @@ The simplest way to achieve this is to add a autoload block to your `composer.js
 Along with a `UsersController.php` file:
 
 ```php
-// /some-path/Http/Controllers/UsersController.php
+// {project_dir}/{project_src}/Http/Controllers/UsersController.php
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -201,7 +201,7 @@ This example controller illustrates how to use controllers, models, and return r
 It assumes that you *also* have a `User.php` file:
 
 ```php
-// /some-path/Models/User.php
+// {project_dir}/{project_src}/Models/User.php
 namespace App\Models;
 
 use PikaJew002\Handrolled\Database\Entity;
