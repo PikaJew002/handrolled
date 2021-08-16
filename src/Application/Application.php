@@ -63,9 +63,9 @@ class Application extends Container implements ContainerInterface
         return $this->configBindings->getOrSet($input);
     }
 
-    public function bootConfig(string $configPath)
+    public function bootConfig(string $envPath, string $configPath)
     {
-        $dotenv = Dotenv::createImmutable(realpath(__DIR__.'/../../'));
+        $dotenv = Dotenv::createImmutable($envPath);
         $dotenv->load();
         $configFiles = (new Collection(scandir($configPath)))->reject(function($file) use ($configPath) {
             return $file === '.' || $file === '..' || (! file_exists($configPath .'/'. $file));
