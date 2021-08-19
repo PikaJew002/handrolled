@@ -35,7 +35,7 @@ require __DIR__.'/../vendor/autoload.php';
 
 $app = new \PikaJew002\Handrolled\Application\Application();
 
-$app->bootConfig(realpath(__DIR__.'/../config/'));
+$app->bootConfig(realpath(__DIR__.'/../'), realpath(__DIR__.'/../config/'));
 
 $app->bootRoutes(realpath(__DIR__.'/../routes/api.php'));
 
@@ -52,7 +52,7 @@ I find this to be a bit cluttered, so my personal preference is to extract some 
 // {project_dir}/boot/boot.php
 $app = new \PikaJew002\Handrolled\Application\Application();
 
-$app->bootConfig(realpath(__DIR__.'/../config/'));
+$app->bootConfig(realpath(__DIR__.'/../'), realpath(__DIR__.'/../config/'));
 
 $app->bootRoutes(realpath(__DIR__.'/../routes/api.php'));
 
@@ -72,8 +72,8 @@ $response->render();
 
 # Required Configuration
 
-There are a few more step to set up your configuration; You'll notice in `boot/boot.php` we reference `routes/api.php` and a `config` directory;
-A `.env` file, `config` directory, and a `routes/api.php` file will be needed to boot the framework;
+There are a few more step to set up your configuration; You'll notice in `boot/boot.php` we reference `routes/api.php`, a `../` directory, and a `config` directory;
+A `.env` file (and the path to it), `config` directory, and a `routes/api.php` file will be needed to boot the framework;
 
 ## .env
 
@@ -85,6 +85,7 @@ cp vendor/pikajew002/handrolled/.env.example .env
 
 This is pretty much just a valid database configuration;
 At this time MySQL and PostgreSQL are the only ones supported; See the PHP PDO drivers configuration for what variables are required for those;
+The path to the directory that holds the `.env` file is the first parameter in the `bootConfig` function;
 
 ## config
 
@@ -92,12 +93,15 @@ The `config` directory must have at least have `database.php` which should look 
 
 ```php
 // {project_dir}/config/database.php
+use PikaJew002\Handrolled\Database\Implementations\MySQL;
+
 return [
     'mysql' => [
         'host' => $_ENV['DB_HOST'],
         'dbname' => $_ENV['DB_DATABASE'],
         'username' => $_ENV['DB_USERNAME'],
         'password' => $_ENV['DB_PASSWORD'],
+        'class' => MySQL::class,
     ],
 ];
 ```
@@ -111,7 +115,9 @@ The `routes/api.php` file should look something like this:
 ```php
 // {project_dir}/routes/api.php
 use App\Http\Controllers\UsersController;
+use App\Http\Controllers\InvokableController;
 use FastRoute\RouteCollector;
+use PikaJew002\Handrolled\Http\Responses\JsonResponse;
 use function FastRoute\simpleDispatcher;
 
 return simpleDispatcher(function(RouteCollector $r) {
@@ -120,12 +126,16 @@ return simpleDispatcher(function(RouteCollector $r) {
         $r->get('/user/{id:\d+}', [UsersController::class, 'view']);
         $r->post('/user', [UsersController::class, 'store']);
         $r->delete('/user/{id:\d+}', [UsersController::class, 'destroy']);
+        $r->addRoute('GET', '/closure/optional-title[/{title}]', function($title = "", Request $request) {
+            return new JsonResponse(['title' => $title]);
+        });
     });
+    $->addRoute(['PATCH', 'PUT'], '/edit-something', InvokableController::class);
 });
 ```
 
 This assumes a few things:
-First, that you have created a `UsersController` class somewhere and it is namespaced in `App\Http\Controllers`;
+First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced in `App\Http\Controllers`;
 
 The simplest way to achieve this is to add a autoload block to your `composer.json` file like so:
 
@@ -145,12 +155,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Exception;
-use PikaJew002\Handrolled\Http\Controller;
 use PikaJew002\Handrolled\Http\Responses\JsonResponse;
 use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
 use PikaJew002\Handrolled\Interfaces\Response;
 
-class UsersController extends Controller
+class UsersController
 {
     public function index(): Response
     {
@@ -167,12 +176,12 @@ class UsersController extends Controller
         return new JsonResponse(['data' => $user]);
     }
 
-    public function store(): Response
+    public function store(Request $request): Response
     {
         $user = new User;
-        $user->email = $this->request->input('email');
-        $user->first_name = $this->request->input('first_name');
-        $user->last_name = $this->request->input('last_name');
+        $user->email = $request->input('email');
+        $user->first_name = $request->input('first_name');
+        $user->last_name = $request->input('last_name');
         $user->save();
 
         return new JsonResponse([
@@ -197,14 +206,33 @@ class UsersController extends Controller
 }
 ```
 
-This example controller illustrates how to use controllers, models, and return responses;
-It assumes that you *also* have a `User.php` file:
+And a `InvokableController.php` file:
+
+```php
+// {project_dir}/{project_src}/Http/Controllers/InvokableController.php
+namespace App\Http\Controllers;
+
+use PikaJew002\Handrolled\Http\Responses\JsonResponse;
+use PikaJew002\Handrolled\Interfaces\Response;
+
+class InvokableController
+{
+    public function __invoke(): Response
+    {
+        return new JsonResponse(['data' => ['message' => 'success']]);
+    }
+}
+```
+
+These example controllers illustrate how to use controllers, models, and return responses;
+
+They also assume that you *also* have a `User.php` file:
 
 ```php
 // {project_dir}/{project_src}/Models/User.php
 namespace App\Models;
 
-use PikaJew002\Handrolled\Database\Entity;
+use PikaJew002\Handrolled\Database\ORM\Entity;
 
 class User extends Entity
 {

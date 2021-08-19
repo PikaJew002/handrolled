@@ -6,7 +6,7 @@ use PikaJew002\Handrolled\Application\Application;
 
 trait UsesContainer
 {
-    public static $container;
+    protected static $container;
 
     public static function setContainer(): void
     {

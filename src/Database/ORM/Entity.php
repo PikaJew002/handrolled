@@ -1,11 +1,10 @@
 <?php
 
-namespace PikaJew002\Handrolled\Database;
+namespace PikaJew002\Handrolled\Database\ORM;
 
+use Exception;
 use PikaJew002\Handrolled\Application\Application;
 use PikaJew002\Handrolled\Traits\UsesContainer;
-use Exception;
-use PDO;
 use ReflectionClass;
 use ReflectionProperty;
 
@@ -17,10 +16,8 @@ abstract class Entity
     {
         return static::getContainer()->get('db');
     }
-    /*
-     * @return Entity
-     */
-    public static function morph(array $object)
+
+    public static function morph(array $object): self
     {
         $class = new ReflectionClass(get_called_class());
         $entity = $class->newInstance();
@@ -97,15 +94,18 @@ abstract class Entity
         $db = static::getDbInstance();
         $tableName = static::getTableName();
         $class = new ReflectionClass($this);
+
         $propsArray = [];
         foreach($class->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
             $propName = $property->getName();
             if($propName !== "id") {
+                var_dump($this->{$propName});
                 if(!empty($this->{$propName})) {
                     $propsArray[] = "`".$propName."` = \"".$this->{$propName}."\"";
                 }
             }
         }
+        die(var_dump($propsArray));
         $setClause = implode(", ", $propsArray);
         $sqlQuery = "";
         if($this->id > 0) { // update query

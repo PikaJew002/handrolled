@@ -2,8 +2,8 @@
 
 namespace PikaJew002\Handrolled\Container;
 
-use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
 use Exception;
+use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 
@@ -85,23 +85,19 @@ class Container implements ContainerInterface
         }
         $parameters = [];
         foreach($constructor->getParameters() as $index => $param) {
-            if($this->hasValue($abstract, $param->getPosition())) {
-                $parameters[] = $this->getValue($abstract, $param->getPosition());
-                continue;
-            }
-            // Skip optional parameters (they must be last)
-            if($param->isOptional()) {
-                continue;
-            }
             $parameterType = $param->getType();
-            if(is_null($parameterType)) {
-                // Parameters must be type hinted for this whole this to work
-                throw new Exception("Parameters must be type-hinted with class name or primitive name: Class: $abstract, ParamType: $parameterType");
-            }
             if(!($parameterType instanceof ReflectionNamedType)) {
                 // Union types are not supported
                 throw new Exception("Parameters must be type-hinted with class name or primitive name! No union types allowed! Class: $abstract, ParamType: $parameterType");
             }
+            // Skip optional parameters (they must be last)
+            // if($parameterType->isOptional()) {
+            //     continue;
+            // }
+            // if($parameterType->allowsNull()) {
+            //     $parameters[] = null;
+            //     continue;
+            // }
             $parameters[] = $this->get($parameterType->getName());
         }
 
