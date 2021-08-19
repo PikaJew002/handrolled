@@ -8,8 +8,6 @@ use Illuminate\Config\Repository;
 use Illuminate\Support\Collection;
 use PDO;
 use PikaJew002\Handrolled\Container\Container;
-use PikaJew002\Handrolled\Database\Implementations\MySQL;
-use PikaJew002\Handrolled\Database\Implementations\PostgreSQL;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\MethodNotAllowedResponse;
@@ -119,17 +117,9 @@ class Application extends Container implements ContainerInterface
 
     public function bootDatabase($driver = 'mysql', $abstract = '\PDO', $alias = 'db')
     {
-        //die(var_dump($this->config('database')));
-        $this->set($abstract, function(ContainerInterface $c) {
-            if($dbConfig = $c->config('database.mysql')) {
-                return new MySQL(
-                    $dbConfig['host'],
-                    $dbConfig['database'],
-                    $dbConfig['username'],
-                    $dbConfig['password']
-                );
-            } elseif($dbConfig = $c->config('database.pgsql')) {
-                return new PostgreSQL(
+        $this->set($abstract, function(ContainerInterface $c) use ($driver) {
+            if($dbConfig = $c->config("database.$driver")) {
+                return new $dbConfig['class'](
                     $dbConfig['host'],
                     $dbConfig['database'],
                     $dbConfig['username'],
