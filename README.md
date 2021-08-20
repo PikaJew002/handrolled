@@ -9,6 +9,10 @@ I'll be upfront: this project exists because I had a hankering to learn how mode
 
 # Installation
 
+The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer intall), then head back here and read on starting with `Usage` to learn more in-depth;
+
+Alternatively, install like so;
+
 You can install the Handrolled framework as a Composer package like so:
 
 ```
@@ -27,7 +31,9 @@ If you want more info on the dependencies that were used, check out the `compose
 To use this framework and get the most dope experience, I recommend using the Front Controller pattern;
 Simply put, all requests for your application should be routed through your `index.php` in your web root directory; I favor using a directory one level above your project root (`public_html`, `public`, etc); You will need to configure your web server to use `{project_dir}/{public_dir}/index.php` as your single entry point to your application; The Laravel docs have a good sample Nginx configuration that is a great starting place for configuring Nginx for the Front Controller pattern in PHP;
 
-Your `{project_dir}/{public_dir}/index.php` file should look something like this:
+Your `{project_dir}/{public_dir}/index.php` file should look something like this***:
+
+*** if you cloned the `PikaJew002/handrolled-project` repo, all the files mentioned here already exist; Nifty, eh?
 
 ```php
 // {project_dir}/{public_dir}/index.php
@@ -169,8 +175,8 @@ class UsersController
 
     public function view($id): Response
     {
-        $user = User::find($id);
-        if(empty($user)) {
+        $user = User::findById($id);
+        if(is_null($user)) {
             return new NotFoundResponse();
         }
         return new JsonResponse(['data' => $user]);
@@ -184,17 +190,13 @@ class UsersController
         $user->last_name = $request->input('last_name');
         $user->save();
 
-        return new JsonResponse([
-            'data' => [
-                'message' => 'success',
-            ],
-        ], 201);
+        return new JsonResponse(['user' => $user], 201);
     }
 
     public function destroy($id): Response
     {
-        $user = User::find($id);
-        if(empty($user)) {
+        $user = User::findById($id);
+        if(is_null($user)) {
             return new NotFoundResponse();
         }
         if($user->delete()) {
