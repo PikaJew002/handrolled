@@ -4,6 +4,7 @@ namespace PikaJew002\Handrolled\Database\ORM;
 
 use Exception;
 use PikaJew002\Handrolled\Application\Application;
+use PikaJew002\Handrolled\Interfaces\Database;
 use PikaJew002\Handrolled\Traits\UsesContainer;
 use ReflectionClass;
 use ReflectionProperty;
@@ -12,12 +13,14 @@ abstract class Entity
 {
     use UsesContainer;
 
-    public static function getDbInstance()
+    protected static string $connection = Database::class;
+
+    public static function getDbInstance(): Database
     {
-        return static::getContainer()->get('db');
+        return static::getContainer()->get(static::$connection);
     }
 
-    public static function morph(array $object): self
+    protected static function morph(array $object): self
     {
         $class = new ReflectionClass(get_called_class());
         $entity = $class->newInstance();
@@ -26,7 +29,6 @@ abstract class Entity
                 $prop->setValue($entity, $object[$prop->getName()]);
             }
         }
-        $entity->initialize();
 
         return $entity;
     }
@@ -35,38 +37,49 @@ abstract class Entity
      * @return Entity[]
      * @param $options = ["conditions" => [...], "order" => "..."]
      */
-    public static function find($options)
+    public static function find(array $options)
     {
         $db = static::getDbInstance();
         $tableName = static::getTableName();
-        $result = [];
-        $query = "SELECT * FROM `".$tableName."`";
+        $query = "SELECT * FROM $tableName";
+        $params = [];
         // options is array to parse into conditions/sort by
-        if(is_array($options) && !empty($options)) {
-            if(isset($options['conditions']) && !empty($options['conditions'])) {
-                $conditions = [];
-                foreach($options['conditions'] as $key => $value) {
-                    $conditions[] = "`".$key."` = \"".$value."\"";
-                }
-                $query .=" WHERE ".implode(" AND ", $conditions);
+        if(isset($options['conditions']) && !empty($options['conditions'])) {
+            $conditions = [];
+            foreach($options['conditions'] as $key => $value) {
+                $conditions[] = "$key = ?";
+                $params[] = $value;
             }
-            if(isset($options['order']) && !empty($options['order'])) {
-                $query .= " ORDER BY ".$options['order'];
-            }
+            $query .=" WHERE ".implode(" AND ", $conditions);
         }
-        // options is an id to retreive a single entity
-        else {
-            $query .=" WHERE `id` = \"".$options."\"";
+        if(isset($options['order']) && !empty($options['order'])) {
+            $query .= " ORDER BY {$options['order']}";
         }
-        $raw = $db->query($query);
-        if($db->errorCode() != 00000) {
-            throw new Exception($db->errorInfo()[2]);
-        }
+        $raw = $db->prepare($query);
+        $raw->execute($params);
+        $result = [];
         foreach($raw as $rawRow) {
             $result[] = static::morph($rawRow);
         }
 
         return $result;
+    }
+
+    /*
+     * @return Entity
+     * @param $options = ["conditions" => [...], "order" => "..."]
+     */
+    public static function findById($id): ?self
+    {
+        $db = static::getDbInstance();
+        $tableName = static::getTableName();
+        $query = "SELECT * FROM $tableName WHERE id = ?";
+        $raw = $db->prepare($query);
+        $raw->execute([$id]);
+        foreach($raw as $rawRow) {
+            return static::morph($rawRow);
+        }
+        return null;
     }
 
     /*
@@ -76,12 +89,8 @@ abstract class Entity
     {
         $db = static::getDbInstance();
         $tableName = static::getTableName();
+        $raw = $db->query("SELECT * FROM $tableName");
         $result = [];
-        $query = "SELECT * FROM `".$tableName."`";
-        $raw = $db->query($query);
-        if($db->errorCode() != 00000) {
-            throw new Exception($db->errorInfo()[2]);
-        }
         foreach($raw as $rawRow) {
             $result[] = static::morph($rawRow);
         }
@@ -89,51 +98,55 @@ abstract class Entity
         return $result;
     }
 
-    public function save()
+    public function save(): bool
     {
         $db = static::getDbInstance();
         $tableName = static::getTableName();
-        $class = new ReflectionClass($this);
-
+        $paramArray = [];
         $propsArray = [];
-        foreach($class->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+        foreach((new ReflectionClass($this))->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
             $propName = $property->getName();
-            if($propName !== "id") {
-                var_dump($this->{$propName});
+            if($propName !== 'id') {
                 if(!empty($this->{$propName})) {
-                    $propsArray[] = "`".$propName."` = \"".$this->{$propName}."\"";
+                    $paramArray[] = $this->{$propName};
+                    $propsArray[] = "$propName = ?";
                 }
             }
         }
-        die(var_dump($propsArray));
-        $setClause = implode(", ", $propsArray);
-        $sqlQuery = "";
+        $setClause = implode(', ', $propsArray);
         if($this->id > 0) { // update query
-            $sqlQuery = "UPDATE `".$tableName."` SET ".$setClause." WHERE id = ".$this->id;
+            return $this->update($db, $tableName, $setClause, $paramArray);
         } else { // insery query
-            $sqlQuery = "INSERT INTO `".$tableName."` SET ".$setClause;
+            return $this->insert($db, $tableName, $setClause, $paramArray);
         }
-        $result = $db->exec($sqlQuery);
-        if($db->errorCode() != 00000) {
-            throw new Exception($db->errorInfo()[2]);
-        }
-
-        return $result;
     }
 
-    public function delete()
+    protected function update($db, string $tableName, string $setClause, array $params): bool
+    {
+        return $db->prepare("UPDATE $tableName SET $setClause, updated_at = NOW() WHERE id = ?")
+                  ->execute(array_merge($params, [$this->id]));
+    }
+
+    protected function insert($db, string $tableName, string $setClause, array $params): bool
+    {
+        $db->prepare("INSERT INTO $tableName SET $setClause")->execute($params);
+        if($this->id = $db->lastInsertId('id')) {
+            foreach($db->query("SELECT created_at, updated_at FROM $tableName WHERE id = {$this->id}") as $result) {
+                $this->created_at = $result['created_at'];
+                $this->updated_at = $result['updated_at'];
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public function delete(): bool
     {
         $db = static::getDbInstance();
         $tableName = static::getTableName();
-        $sqlQuery = "";
         if($this->id > 0) {
-            $sqlQuery = "DELETE FROM `".$tableName."` WHERE id = ".$this->id;
+            return $db->prepare("DELETE FROM $tableName WHERE id = ?")->execute([$this->id]);
         }
-        $result = $db->exec($sqlQuery);
-        if($db->errorCode() != 00000) {
-            throw new Exception($db->errorInfo()[2]);
-        }
-
-        return $result;
+        return false;
     }
 }
