@@ -1,6 +1,12 @@
 {
     "name": "pikajew002/handrolled",
-    "description": "A minimalist, bare-bones framework for small handrolled PHP projects",
+    "description": "A minimalist, bare-bones framework for building small, dope handrolled PHP projects",
+    "authors": [
+        {
+            "name": "Aaron Eisenberg",
+            "email": "aaron@ironmthome.com"
+        }
+    ],
     "require": {
         "php": ">=7.4",
         "illuminate/config": "^8.53",
