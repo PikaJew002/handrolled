@@ -4,6 +4,7 @@ namespace PikaJew002\Handrolled\Database\ORM;
 
 use Exception;
 use PikaJew002\Handrolled\Application\Application;
+use PikaJew002\Handrolled\Interfaces\Database;
 use PikaJew002\Handrolled\Traits\UsesContainer;
 use ReflectionClass;
 use ReflectionProperty;
@@ -12,9 +13,11 @@ abstract class Entity
 {
     use UsesContainer;
 
-    public static function getDbInstance()
+    protected static string $connection = Database::class;
+
+    public static function getDbInstance(): Database
     {
-        return static::getContainer()->get('db');
+        return static::getContainer()->get(static::$connection);
     }
 
     public static function morph(array $object): self
