@@ -13,6 +13,7 @@ use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\MethodNotAllowedResponse;
 use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
+use PikaJew002\Handrolled\Interfaces\Database as DatabaseInterface;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 use PikaJew002\Handrolled\Support\Configuration;
 use ReflectionFunction;
@@ -34,7 +35,7 @@ class Application extends Container implements ContainerInterface
 
     public function handleRequest(): ResponseInterface
     {
-        return $this->routeTo($this->get('request'));
+        return $this->routeTo($this->get(Request::class));
     }
 
     protected function routeTo(Request $request): ResponseInterface
@@ -74,7 +75,7 @@ class Application extends Container implements ContainerInterface
         return $this->get($controllerClass)(...$invokableParams);
     }
 
-    protected function getArgs(array $reflectionParams, array $routeParams): array
+    protected function getArgs(array $reflectionParams = [], array $routeParams = []): array
     {
         $params = [];
         foreach($reflectionParams as $param) {
@@ -111,24 +112,21 @@ class Application extends Container implements ContainerInterface
 
     public function bootRoutes(string $routesPath)
     {
-        $this->setAlias('request', Request::class);
         $this->routeDispatcher = require $routesPath;
     }
 
-    public function bootDatabase($driver = 'mysql', $abstract = '\PDO', $alias = 'db')
+    public function bootDatabase(string $driver = 'mysql')
     {
-        $this->set($abstract, function(ContainerInterface $c) use ($driver) {
-            if($dbConfig = $c->config("database.$driver")) {
-                return new $dbConfig['class'](
-                    $dbConfig['host'],
-                    $dbConfig['database'],
-                    $dbConfig['username'],
-                    $dbConfig['password']
-                );
-            } else {
-                throw new \Exception('Database config not found! Please provide a valid database configuration!');
-            }
+        $dbConfig = $this->config("database.$driver");
+        $this->set($dbConfig['class'], function(ContainerInterface $c) use ($driver) {
+              $class = $c->config("database.$driver.class");
+              return new $class(
+                $c->config("database.$driver.host"),
+                $c->config("database.$driver.database"),
+                $c->config("database.$driver.username"),
+                $c->config("database.$driver.password")
+            );
         });
-        $this->setAlias($alias, $abstract);
+        $this->setAlias(DatabaseInterface::class, $dbConfig['class']);
     }
 }
