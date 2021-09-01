@@ -153,6 +153,13 @@ class Application extends Container implements ContainerInterface
 
     public function bootDatabase(string $driver = 'mysql')
     {
+        assert(
+            in_array(
+                $driver,
+                array_keys($this->config('database'))
+            ),
+            new Exception('Database driver not supported!')
+        );
         $dbConfig = $this->config("database.$driver");
         $this->set($dbConfig['class'], function(ContainerInterface $c) use ($driver) {
               $class = $c->config("database.$driver.class");
