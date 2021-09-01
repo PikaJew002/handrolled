@@ -85,7 +85,7 @@ abstract class Entity
     /*
      * @return Entity[]
      */
-    public function all()
+    public static function all()
     {
         $db = static::getDbInstance();
         $tableName = static::getTableName();
