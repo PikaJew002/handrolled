@@ -17,6 +17,7 @@ use PikaJew002\Handrolled\Http\Responses\UnauthorizedResponse;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
 use PikaJew002\Handrolled\Interfaces\Database as DatabaseInterface;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
+use PikaJew002\Handrolled\Interfaces\User as UserInterface;
 use PikaJew002\Handrolled\Router\Router;
 use PikaJew002\Handrolled\Support\Configuration;
 use PikaJew002\Handrolled\Exceptions\HttpException;
