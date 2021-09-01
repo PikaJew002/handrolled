@@ -27,15 +27,36 @@ use ReflectionMethod;
 class Application extends Container implements ContainerInterface
 {
     protected $routeDispatcher;
+    protected string $projectPath;
+    protected string $envPath;
+    protected string $configPath;
+    protected array $objectBindings;
+    protected array $aliasBindings;
+    protected array $valueBindings;
     protected Configuration $configBindings;
 
-    public function __construct(array $objectBindings = [], array $aliasBindings = [], array $valueBindings = [], Configuration $configBindings = null)
+    public function __construct(
+        string $projectPath = '../',
+        array $objectBindings = [],
+        array $aliasBindings = [],
+        array $valueBindings = [],
+        Configuration $configBindings = null
+    )
     {
-        static::setInstance($this);
-        $this->objectBindings = $objectBindings;
-        $this->aliasBindings = $aliasBindings;
-        $this->valueBindings = $valueBindings;
+        if($projectPath === '') {
+            $projectPath = getcwd();
+        } else if(strlen($projectPath >= 1) && strncmp($projectPath, '/', 1) !== 0) {
+            $projectPath = getcwd().'/'.$projectPath;
+        }
+        $this->projectPath = realpath($projectPath);
+        $this->objectBindings = [];
+        $this->aliasBindings = [];
+        $this->valueBindings = [];
         $this->configBindings = $configBindings ?? new Configuration();
+
+        $this->set(self::class, fn(self $app) => $app);
+        $this->set(Configuration::class, fn(self $app) => $app->getConfigBindings());
+        static::setInstance($this);
     }
 
     public function handleRequest(): ResponseInterface
