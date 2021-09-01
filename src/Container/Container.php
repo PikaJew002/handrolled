@@ -88,16 +88,12 @@ class Container implements ContainerInterface
             $parameterType = $param->getType();
             if(!($parameterType instanceof ReflectionNamedType)) {
                 // Union types are not supported
-                throw new Exception("Parameters must be type-hinted with class name or primitive name! No union types allowed! Class: $abstract, ParamType: $parameterType");
+                throw new Exception("Parameters must be type-hinted with class name. No union types allowed. Class: $abstract, ParamType: $parameterType");
             }
-            // Skip optional parameters (they must be last)
-            // if($parameterType->isOptional()) {
-            //     continue;
-            // }
-            // if($parameterType->allowsNull()) {
-            //     $parameters[] = null;
-            //     continue;
-            // }
+            if($param->isDefaultValueAvailable()) {
+                $params[] = $param->getDefaultValue();
+                continue;
+            }
             $parameters[] = $this->get($parameterType->getName());
         }
 
