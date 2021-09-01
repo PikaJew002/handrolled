@@ -19,6 +19,7 @@ class Request
     public array $query;
     public array $files;
     public array $cookies;
+    protected $user;
     public $body;
 
     public function __construct()
@@ -31,7 +32,7 @@ class Request
         $this->query = $this->parseQuery($this->method, $this->server['REQUEST_URI']);
         $this->request = $this->parseRequest($this->method, $this->headers, $this->body);
         $this->files = $this->parseFiles();
-        $this->cookies = $this->parseCookies();
+        $this->cookies = $this->parseCookies($this->headers);
     }
 
     protected function parseURI(string $uri): string
@@ -117,9 +118,16 @@ class Request
         return isset($_FILES) ? $_FILES : [];
     }
 
-    protected function parseCookies(): array
+    protected function parseCookies(array $headers): array
     {
-        return isset($_COOKIES) ? $_COOKIES : [];
+        $cookies = [];
+        $headerCookieArr = explode(';', (isset($headers['COOKIE']) ? $headers['COOKIE'] : ''));
+        foreach($headerCookieArr as $cookieRaw) {
+            $cookieParsed = explode('=', $cookieRaw);
+            $cookies[$cookieParsed[0]] = $cookieParsed[1];
+        }
+
+        return $cookies + (isset($_COOKIES) ? $_COOKIES : []);
     }
 
     public function getMethod(): string
@@ -130,6 +138,16 @@ class Request
     public function getUri(): string
     {
         return $this->uri;
+    }
+
+    public function setUser($user)
+    {
+        $this->user = $user;
+    }
+
+    public function user()
+    {
+        return $this->user;
     }
 
     public function query($key, $default = null)
