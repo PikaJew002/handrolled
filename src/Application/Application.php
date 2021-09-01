@@ -90,16 +90,49 @@ class Application extends Container implements ContainerInterface
         }
     }
 
-    // just a shortcut to get to config repo
+    // just a shortcut to get/set from config repo
     public function config($input)
     {
         return $this->configBindings->getOrSet($input);
     }
 
-    public function bootConfig(string $envPath, string $configPath)
+    // just a shortcut to get return config repo itself
+    public function getConfigBindings()
     {
+        return $this->configBindings;
+    }
+
+    public function getProjectPath(): string
+    {
+        return $this->projectPath;
+    }
+
+    public function setEnvPath(string $envPath): void
+    {
+        $this->envPath = $envPath;
+    }
+
+    public function setConfigPath(string $configPath): void
+    {
+        $this->configPath = $configPath;
+    }
+
+    public function bootConfig(string $envPath = '', string $configPath = 'config')
+    {
+        if($envPath === '') {
+            $envPath = $this->projectPath;
+        } else if(strlen($envPath) >= 1 && strncmp($envPath, '/', 1) !== 0) {
+            $envPath = $this->projectPath.'/'.$envPath;
+        }
+        $this->envPath = realpath($envPath);
         $dotenv = Dotenv::createImmutable($envPath);
         $dotenv->load();
+        if($configPath === '') {
+            $configPath = $this->projectPath;
+        } else if(strlen($configPath) >= 1 && strncmp($configPath, '/', 1) !== 0) {
+            $configPath = $this->projectPath.'/'.$configPath;
+        }
+        $this->configPath = realpath($configPath);
         $configFiles = (new Collection(scandir($configPath)))->reject(function($file) use ($configPath) {
             return $file === '.' || $file === '..' || (! file_exists($configPath .'/'. $file));
         })->mapWithKeys(function($fileName) use ($configPath) {
@@ -108,9 +141,14 @@ class Application extends Container implements ContainerInterface
         $this->config($configFiles);
     }
 
-    public function bootRoutes(string $routesPath)
+    public function bootRoutes(string $routesPath = 'routes/api.php')
     {
-        $this->routeDispatcher = require $routesPath;
+        if($routesPath === '') {
+            $routesPath = $this->projectPath;
+        } else if(strlen($routesPath) >= 1 && strncmp($routesPath, '/', 1) !== 0) {
+            $routesPath = $this->projectPath.'/'.$routesPath;
+        }
+        $this->routeDispatcher = require realpath($routesPath);
     }
 
     public function bootDatabase(string $driver = 'mysql')
