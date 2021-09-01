@@ -12,10 +12,14 @@ use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\MethodNotAllowedResponse;
 use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
+use PikaJew002\Handrolled\Http\Responses\UnauthenticatedResponse;
+use PikaJew002\Handrolled\Http\Responses\UnauthorizedResponse;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
 use PikaJew002\Handrolled\Interfaces\Database as DatabaseInterface;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
+use PikaJew002\Handrolled\Router\Router;
 use PikaJew002\Handrolled\Support\Configuration;
+use PikaJew002\Handrolled\Exceptions\HttpException;
 use ReflectionFunction;
 use ReflectionMethod;
 
@@ -47,49 +51,21 @@ class Application extends Container implements ContainerInterface
         if($routeInfo[0] == Dispatcher::METHOD_NOT_ALLOWED) {
             return new MethodNotAllowedResponse($routeInfo[1]);
         }
-        $routeParams = $routeInfo[2];
-        // if the handler passed is in form of [Controller::class, 'methodName']
-        if(is_array($routeInfo[1])) {
-            $controllerClass = $routeInfo[1][0];
-            $controllerMethod = $routeInfo[1][1];
-            $methodParams = $this->getArgs(
-                (new ReflectionMethod($controllerClass, $controllerMethod))->getParameters(),
-                $routeParams
-            );
-            return $this->get($controllerClass)->$controllerMethod(...$methodParams);
-        }
-        if(is_callable($routeInfo[1])) {
-            $closure = $routeInfo[1];
-            $closureParams = $this->getArgs(
-                (new ReflectionFunction($closure))->getParameters(),
-                $routeParams
-            );
-            return $closure(...$closureParams);
-        }
-        // if the handler passed is an invokable class InvokableController::class
-        $controllerClass = $routeInfo[1][0];
-        $invokableParams = $this->getArgs(
-            (new ReflectionMethod($controllerClass, '__invoke'))->getParameters(),
-            $routeParams
-        );
-        return $this->get($controllerClass)(...$invokableParams);
-    }
-
-    protected function getArgs(array $reflectionParams = [], array $routeParams = []): array
-    {
-        $params = [];
-        foreach($reflectionParams as $param) {
-            if(array_key_exists($param->getName(), $routeParams)) {
-                $params[] = $routeParams[$param->getName()];
-                continue;
+        $router = new Router($this, $request, $routeInfo);
+        try {
+            return $router->pipeRequestThroughToResponse($this->config('route.middleware'));
+        } catch(HttpException $e) {
+            if($e->code === 400) {
+                return new UnauthenticatedResponse($e->message);
             }
-            if($param->isDefaultValueAvailable()) {
-                $params[] = $param->getDefaultValue();
-                continue;
+            if($e->code === 401) {
+                return new UnauthenticatedResponse($e->message);
             }
-            $params[] = $this->get($param->getType()->getName());
+            if($e->code === 403) {
+              return new UnauthorizedResponse($e->message);
+            }
+            throw $e;
         }
-        return $params;
     }
 
     // just a shortcut to get to config repo
@@ -128,5 +104,10 @@ class Application extends Container implements ContainerInterface
             );
         });
         $this->setAlias(DatabaseInterface::class, $dbConfig['class']);
+    }
+
+    public function bootAuth()
+    {
+        $this->setAlias(UserInterface::class, $this->config('auth.user'));
     }
 }
