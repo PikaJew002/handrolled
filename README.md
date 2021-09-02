@@ -1,30 +1,31 @@
 # Handrolled: a minimalist framework
 
 This project is a very minimalist framework for quickly getting an easily consumable API up and running in a few minutes;
-It uses very few dependencies and the ones that have been pulled in are small and make the whole experience simple;
+It uses very few dependencies and the ones that have been pulled in are small and make the whole experience dope as hell;
 
 ## Background
 
-I'll be upfront: this project exists because I had a hankering to learn how modern PHP frameworks did magical stuff like routing, dependency injection containers, object-relational mappers, load configuration, etc; All that magical stuff is even more cool when you pull back the curtain and dig into some code and try to implement it for yourself; Several patterns here are heavily inspired by the Laravel framework, because that's my technical background as a programmer that uses Laravel every day;
+I'll be upfront: this project exists because I got the munchies to learn how modern PHP frameworks did magical stuff like routing, dependency injection, object-relational mappers, load configuration, etc; All that magical stuff is even more cool when you pull back the curtain and dig into some code and try to implement it for yourself; Several patterns here are heavily inspired by the Laravel framework, because that's my technical background as a programmer that uses Laravel every day;
 
 # Installation
 
-The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer intall), then head back here and read on starting with `Usage` to learn more in-depth;
+The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer install), then head back here and read on starting with `Usage` to learn more in-depth;
 
 Alternatively, install like so;
 
 You can install the Handrolled framework as a Composer package like so:
 
-```
+```sh
 composer require pikajew002/handrolled
 ```
 
 Install the dependencies:
-```
+
+```sh
 composer install
 ```
 
-If you want more info on the dependencies that were used, check out the `composer.json` file; There are a couple;
+If you want more info on the dependencies that were used, check out the `composer.json` file; There are a few;
 
 # Usage
 
@@ -57,12 +58,16 @@ I find this to be a bit cluttered, so my personal preference is to extract some 
 ```php
 // {project_dir}/boot/boot.php
 $app = new \PikaJew002\Handrolled\Application\Application();
+// same as $app = new \PikaJew002\Handrolled\Application\Application('../');
 
-$app->bootConfig(realpath(__DIR__.'/../'), realpath(__DIR__.'/../config/'));
+$app->bootConfig();
+// same as $app->bootConfig('../', 'config');
 
-$app->bootRoutes(realpath(__DIR__.'/../routes/api.php'));
+$app->bootRoutes();
+// same as $app->bootRoutes('routes/api.php');
 
 $app->bootDatabase();
+// same as $app->bootDatabase('mysql');
 
 return $app;
 
@@ -78,7 +83,8 @@ $response->render();
 
 # Required Configuration
 
-There are a few more step to set up your configuration; You'll notice in `boot/boot.php` we reference `routes/api.php`, a `../` directory, and a `config` directory;
+There are a few more step to set up your configuration;
+You'll notice in `boot/boot.php` we reference `routes/api.php`, a `../` directory, and a `config` directory; Those are the default values for the project root (arg 1 in `new Application`), the directory where the `.env` file is located (are 1 in `$app->bootConfig`), the directory where the configuration files are located (arg 2 in `$app->bootConfig`), the file where the routes are defined (arg 1 in `$app->bootRoutes`), and the database driver to use (arg 1 in `$app->bootDatabase`).
 A `.env` file (and the path to it), `config` directory, and a `routes/api.php` file will be needed to boot the framework;
 
 ## .env
@@ -89,17 +95,16 @@ You can copy the `.env.example` file to set environment variables required for t
 cp vendor/pikajew002/handrolled/.env.example .env
 ```
 
-This is pretty much just a valid database configuration;
-At this time MySQL and PostgreSQL are the only ones supported; See the PHP PDO drivers configuration for what variables are required for those;
+This file pretty much just contains a valid database configuration at this point;
+At this time MySQL (`mysql`) and PostgreSQL (`pgsql`) are the only ones supported; See the PHP PDO drivers configuration for what variables are required for those;
 The path to the directory that holds the `.env` file is the first parameter in the `bootConfig` function;
 
 ## config
 
-The `config` directory must have at least have `database.php` which should look like this:
+The `config` directory must have have `database.php` which should look like this:
 
 ```php
 // {project_dir}/config/database.php
-use PikaJew002\Handrolled\Database\Implementations\MySQL;
 
 return [
     'mysql' => [
@@ -107,51 +112,177 @@ return [
         'dbname' => $_ENV['DB_DATABASE'],
         'username' => $_ENV['DB_USERNAME'],
         'password' => $_ENV['DB_PASSWORD'],
-        'class' => MySQL::class,
+        'class' => \PikaJew002\Handrolled\Database\Implementations\MySQL::class,
     ],
 ];
 ```
 
 This, by default, sets the required environment variables to connect to a local MySQL database;
 
+In order to add middleware to the routes (defined in `routes/api.php`), you will be to have a `route.php` file;
+This defines the global middleware applied to all routes; The order specified is the order in which they are applied;
+
+```php
+// {project_dir}/config/route.php
+
+return [
+    'middleware' => [
+        //
+    ],
+];
+```
+
+In order to use the `AuthenticateSession` middleware (see section below for details), you'll need to have a `auth.php` file;
+
+```php
+// {project_dir}/config/auth.php
+
+return [
+    // this defaults to \App\Models\User::class, if not specified
+    'user' => \App\Models\User::class,
+    'driver' => 'cookies',
+
+    'drivers' => [
+        'cookies' => [
+            'http_only' => true,
+            'secure' => false,
+            'length' => 3600, // 1 hr
+        ],
+    ]
+];
+```
+
+Right now, the only supported driver is `cookies`; This does not use PHP sessions, only raw cookies; Because PHP sessions are a pain in the ass to deal with; I said what I said;
+
 ## routes/api.php
 
-The `routes/api.php` file should look something like this:
+The `routes/api.php` file should/can look something like this:
 
 ```php
 // {project_dir}/routes/api.php
+
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\InvokableController;
 use FastRoute\RouteCollector;
+use PikaJew002\Handrolled\Http\Middleware\AuthenticateSession;
 use PikaJew002\Handrolled\Http\Responses\JsonResponse;
 use function FastRoute\simpleDispatcher;
 
 return simpleDispatcher(function(RouteCollector $r) {
     $r->addGroup('/api', function (RouteCollector $r) {
-        $r->get('/users', [UsersController::class, 'index']);
-        $r->get('/user/{id:\d+}', [UsersController::class, 'view']);
-        $r->post('/user', [UsersController::class, 'store']);
-        $r->delete('/user/{id:\d+}', [UsersController::class, 'destroy']);
+        $r->get('/users', [
+            'class' => UsersController::class,
+            'method' => 'index',
+            'middleware' => AuthenticateSession::class,
+        ]);
+        $r->get('/user/{id:\d+}', [
+            'class' => UsersController::class,
+            'method' => 'view',
+            'middleware' => AuthenticateSession::class,
+        ]);
+        $r->post('/user', [
+            'class' => UsersController::class,
+            'method' => 'store',
+            'middleware' => AuthenticateSession::class,
+        ]);
+        $r->delete('/user/{id:\d+}', [
+            'class' => UsersController::class,
+            'method' => 'destroy',
+            'middleware' => AuthenticateSession::class,
+        ]);
+        $r->addRoute('GET', '/closure/optional-title[/{title}]', [
+            'closure' => function($title = "", Request $request) {
+                return new JsonResponse(['title' => $title]);
+            },
+            'middleware' => AuthenticateSession::class,
+        ]);
+        // Alternatively if not adding middleware:
         $r->addRoute('GET', '/closure/optional-title[/{title}]', function($title = "", Request $request) {
             return new JsonResponse(['title' => $title]);
         });
     });
+    $->addRoute(['PATCH', 'PUT'], '/edit-something', [
+        'class' => InvokableController::class,
+        'middleware' => AuthenticateSession::class,
+    ]);
+    // Alternatively if not adding middleware:
     $->addRoute(['PATCH', 'PUT'], '/edit-something', InvokableController::class);
 });
 ```
 
-This assumes a few things:
-First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced in `App\Http\Controllers`;
+Note: you can make and use your own middleware, just be sure it implements the middleware interface (`PikaJew002\Handrolled\Interfaces\Middleware`);
 
-The simplest way to achieve this is to add a autoload block to your `composer.json` file like so:
+This routes file assumes a few things:
 
-```json
-"autoload": {
-    "psr-4": {
-        "App\\": "path/to/class/definitions/"
+First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced under `App\Http\Controllers`;
+Second, in order to use the `AuthenticateSession` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
+
+```php
+// {project_dir}/src/Models/User.php
+
+namespace App\Models;
+
+use PikaJew002\Handrolled\Database\ORM\Entity;
+use PikaJew002\Handrolled\Interfaces\User as UserInterface;
+use PikaJew002\Handrolled\Traits\UsesAuthCookie;
+
+class User extends Entity implements UserInterface
+{
+    use UsesAuthCookie;
+
+    protected string $tableName = 'users';
+
+    // Entity database columns
+    public $id;
+    public $email;
+    public $first_name;
+    public $last_name;
+    public $password_hash;
+    public $created_at;
+    public $updated_at;
+
+    // must be implemented for UserInterface
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    // must be implemented for UserInterface
+    public function getUsername()
+    {
+        return $this->email;
+    }
+
+    // must be implemented for UserInterface
+    public function getPasswordHash()
+    {
+        return $this->password_hash;
+    }
+
+    // used in LoginController, should you choose to implement it
+    public static function checkCredentials(string $username, string $password): ?self
+    {
+        $user = self::find([
+            'conditions' => ['email' => $username],
+        ]);
+        if(!empty($user) && password_verify($password, $user[0]->getPasswordHash())) {
+            return $user[0];
+        }
+
+        return null;
+    }
+
+    /*
+     * -> must implement in every class that extends Entity
+     */
+    public static function getTableName(): string
+    {
+        return $tableName ?? "users";
     }
 }
 ```
+
+This example model (or database entity) defines the table name and columns on the class and assumes the database already has this table created;
 
 Along with a `UsersController.php` file:
 
@@ -160,7 +291,7 @@ Along with a `UsersController.php` file:
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Exception;
+use PikaJew002\Handrolled\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Responses\JsonResponse;
 use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
 use PikaJew002\Handrolled\Interfaces\Response;
@@ -170,7 +301,7 @@ class UsersController
     public function index(): Response
     {
         $users = User::all();
-        return new JsonResponse(['data' => $users]);
+        return new JsonResponse(['users' => $users]);
     }
 
     public function view($id): Response
@@ -179,7 +310,7 @@ class UsersController
         if(is_null($user)) {
             return new NotFoundResponse();
         }
-        return new JsonResponse(['data' => $user]);
+        return new JsonResponse(['user' => $user]);
     }
 
     public function store(Request $request): Response
@@ -201,9 +332,9 @@ class UsersController
         }
         if($user->delete()) {
             return new JsonResponse(['user' => $user]);
-        } else {
-            throw new Exception('Database eror! Could not delete user!');
         }
+
+        throw new HttpException(500, 'Database error! Could not delete user!');
     }
 }
 ```
@@ -228,35 +359,15 @@ class InvokableController
 
 These example controllers illustrate how to use controllers, models, and return responses;
 
-They also assume that you *also* have a `User.php` file:
+To use your own classes/code, be sure to add an autoload block to your `composer.json` file like so (replace `src/` with wherever your project classes are located if different):
 
-```php
-// {project_dir}/{project_src}/Models/User.php
-namespace App\Models;
-
-use PikaJew002\Handrolled\Database\ORM\Entity;
-
-class User extends Entity
-{
-    protected string $tableName = 'users';
-    public $id;
-    public $email;
-    public $first_name;
-    public $last_name;
-    public $created_at;
-    public $updated_at;
-
-    /*
-     * -> must implement in every class that extends Entity
-     */
-    public static function getTableName(): string
-    {
-        return $tableName ?? "users";
+```json
+"autoload": {
+    "psr-4": {
+        "App\\": "src/"
     }
 }
 ```
-
-This example model (or database entity) defines the table name and columns on the class and assumes the database already has this table created;
 
 # Wrapping Up
 
