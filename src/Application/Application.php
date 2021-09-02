@@ -8,6 +8,7 @@ use Illuminate\Config\Repository;
 use Illuminate\Support\Collection;
 use PDO;
 use PikaJew002\Handrolled\Container\Container;
+use PikaJew002\Handrolled\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\MethodNotAllowedResponse;
@@ -20,7 +21,6 @@ use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 use PikaJew002\Handrolled\Interfaces\User as UserInterface;
 use PikaJew002\Handrolled\Router\Router;
 use PikaJew002\Handrolled\Support\Configuration;
-use PikaJew002\Handrolled\Exceptions\HttpException;
 use ReflectionFunction;
 use ReflectionMethod;
 
