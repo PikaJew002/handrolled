@@ -120,14 +120,19 @@ class Request
 
     protected function parseCookies(array $headers): array
     {
-        $cookies = [];
+        $cookiesFromHeaders = [];
+        $cookiesFromHeadersStr = isset($headers['COOKIE']) ? $headers['COOKIE'] : '';
+        $headerCookieArr = $cookiesFromHeadersStr !== '' ? explode(';', $cookiesFromHeadersStr) : [];
         $headerCookieArr = explode(';', (isset($headers['COOKIE']) ? $headers['COOKIE'] : ''));
         foreach($headerCookieArr as $cookieRaw) {
+            if($cookieRaw === '') continue;
             $cookieParsed = explode('=', $cookieRaw);
-            $cookies[$cookieParsed[0]] = $cookieParsed[1];
+            if(isset($cookieParsed[0]) && isset($cookieParsed[1])) {
+                $cookiesFromHeaders[$cookieParsed[0]] = $cookieParsed[1];
+            }
         }
-
-        return $cookies + (isset($_COOKIES) ? $_COOKIES : []);
+        
+        return $cookiesFromHeaders + (isset($_COOKIES) ? $_COOKIES : []);
     }
 
     public function getMethod(): string
