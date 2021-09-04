@@ -95,7 +95,7 @@ class Route
                 $controllerParams[] = $param->getDefaultValue();
                 continue;
             }
-            if($param->getType()->getName() === $request::class) {
+            if($param->getType()->getName() === get_class($request)) {
                 $controllerParams[] = $request;
                 continue;
             }

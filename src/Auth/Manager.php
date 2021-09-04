@@ -12,7 +12,7 @@ class Manager
 
     public function __construct(User $user, Configuration $config)
     {
-        $this->userClass = $user::class;
+        $this->userClass = get_class($user);
         $this->config = $config;
     }
 }
