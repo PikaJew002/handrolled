@@ -3,6 +3,7 @@
 namespace PikaJew002\Handrolled\Application;
 
 use Dotenv\Dotenv;
+use Exception;
 use FastRoute\Dispatcher;
 use Illuminate\Config\Repository;
 use Illuminate\Support\Collection;
