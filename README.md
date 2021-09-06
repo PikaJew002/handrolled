@@ -1,17 +1,17 @@
 # Handrolled: a minimalist framework
 
-This project is a very minimalist framework for quickly getting an easily consumable API up and running in a few minutes;
-It uses very few dependencies and the ones that have been pulled in are small and make the whole experience dope as hell;
+This project is a very minimalist framework for quickly getting an easily consumable API up and running in a few minutes.
+It uses very few dependencies and the ones that have been pulled in are small and make the whole experience dope as hell.
 
 ## Background
 
-I'll be upfront: this project exists because I got the munchies to learn how modern PHP frameworks did magical stuff like routing, dependency injection, object-relational mappers, load configuration, etc; All that magical stuff is even more cool when you pull back the curtain and dig into some code and try to implement it for yourself; Several patterns here are heavily inspired by the Laravel framework, because that's my technical background as a programmer that uses Laravel every day;
+I'll be upfront: this project exists because I got the munchies to learn how modern PHP frameworks did magical stuff like routing, dependency injection, object-relational mappers, load configuration, etc. All that magical stuff is even more cool when you pull back the curtain and dig into some code and try to implement it for yourself. Several patterns here are heavily inspired by the Laravel framework, because that's my technical background as a programmer that uses Laravel every day.
 
 # Installation
 
-The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer install), then head back here and read on starting with `Usage` to learn more in-depth;
+The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer install), then head back here and read on starting with `Usage` to learn more in-depth.
 
-Alternatively, install like so;
+Alternatively, install like so.
 
 You can install the Handrolled framework as a Composer package like so:
 
@@ -25,16 +25,16 @@ Install the dependencies:
 composer install
 ```
 
-If you want more info on the dependencies that were used, check out the `composer.json` file; There are a few;
+If you want more info on the dependencies that were used, check out the `composer.json` file. There are a few.
 
 # Usage
 
-To use this framework and get the most dope experience, I recommend using the Front Controller pattern;
-Simply put, all requests for your application should be routed through your `index.php` in your web root directory; I favor using a directory one level above your project root (`public_html`, `public`, etc); You will need to configure your web server to use `{project_dir}/{public_dir}/index.php` as your single entry point to your application; The Laravel docs have a good sample Nginx configuration that is a great starting place for configuring Nginx for the Front Controller pattern in PHP;
+To use this framework and get the most dope experience, I recommend using the Front Controller pattern.
+Simply put, all requests for your application should be routed through your `index.php` in your web root directory. I favor using a directory one level above your project root (`public_html`, `public`, etc). You will need to configure your web server to use `{project_dir}/{public_dir}/index.php` as your single entry point to your application. The Laravel docs have a good sample Nginx configuration that is a great starting place for configuring Nginx for the Front Controller pattern in PHP.
 
 Your `{project_dir}/{public_dir}/index.php` file should look something like this***:
 
-*** if you cloned the `PikaJew002/handrolled-project` repo, all the files mentioned here already exist; Nifty, eh?
+*** if you cloned the `PikaJew002/handrolled-project` repo, all the files mentioned here already exist. Nifty, eh?
 
 ```php
 // {project_dir}/{public_dir}/index.php
@@ -83,21 +83,21 @@ $response->render();
 
 # Required Configuration
 
-There are a few more step to set up your configuration;
-You'll notice in `boot/boot.php` we reference `routes/api.php`, a `../` directory, and a `config` directory; Those are the default values for the project root (arg 1 in `new Application`), the directory where the `.env` file is located (are 1 in `$app->bootConfig`), the directory where the configuration files are located (arg 2 in `$app->bootConfig`), the file where the routes are defined (arg 1 in `$app->bootRoutes`), and the database driver to use (arg 1 in `$app->bootDatabase`).
-A `.env` file (and the path to it), `config` directory, and a `routes/api.php` file will be needed to boot the framework;
+There are a few more step to set up your configuration.
+You'll notice in `boot/boot.php` we reference `routes/api.php`, a `../` directory, and a `config` directory. Those are the default values for the project root (arg 1 in `new Application`), the directory where the `.env` file is located (are 1 in `$app->bootConfig`), the directory where the configuration files are located (arg 2 in `$app->bootConfig`), the file where the routes are defined (arg 1 in `$app->bootRoutes`), and the database driver to use (arg 1 in `$app->bootDatabase`).
+A `.env` file (and the path to it), `config` directory, and a `routes/api.php` file will be needed to boot the framework.
 
 ## .env
 
-You can copy the `.env.example` file to set environment variables required for the framework to boot;
+You can copy the `.env.example` file to set environment variables required for the framework to boot.
 
 ```
 cp vendor/pikajew002/handrolled/.env.example .env
 ```
 
-This file pretty much just contains a valid database configuration at this point;
-At this time MySQL (`mysql`) and PostgreSQL (`pgsql`) are the only ones supported; See the PHP PDO drivers configuration for what variables are required for those;
-The path to the directory that holds the `.env` file is the first parameter in the `bootConfig` function;
+This file pretty much just contains a valid database configuration at this point.
+At this time MySQL (`mysql`) and PostgreSQL (`pgsql`) are the only ones supported. See the PHP PDO drivers configuration for what variables are required for those.
+The path to the directory that holds the `.env` file is the first parameter in the `bootConfig` function.
 
 ## config
 
@@ -117,10 +117,10 @@ return [
 ];
 ```
 
-This, by default, sets the required environment variables to connect to a local MySQL database;
+This, by default, sets the required environment variables to connect to a local MySQL database.
 
-In order to add middleware to the routes (defined in `routes/api.php`), you will be to have a `route.php` file;
-This defines the global middleware applied to all routes; The order specified is the order in which they are applied;
+In order to add middleware to the routes (defined in `routes/api.php`), you will be to have a `route.php` file.
+This defines the global middleware applied to all routes. The order specified is the order in which they are applied.
 
 ```php
 // {project_dir}/config/route.php
@@ -132,7 +132,7 @@ return [
 ];
 ```
 
-In order to use the `AuthenticateSession` middleware (see section below for details), you'll need to have a `auth.php` file;
+In order to use the `AuthenticateSession` middleware (see section below for details), you'll need to have a `auth.php` file.
 
 ```php
 // {project_dir}/config/auth.php
@@ -152,7 +152,7 @@ return [
 ];
 ```
 
-Right now, the only supported driver is `cookies`; This does not use PHP sessions, only raw cookies; Because PHP sessions are a pain in the ass to deal with; I said what I said;
+Right now, the only supported driver is `cookies`. This does not use PHP sessions, only raw cookies. Because PHP sessions are a pain in the ass to deal with. I said what I said.
 
 ## routes/api.php
 
@@ -210,11 +210,11 @@ return simpleDispatcher(function(RouteCollector $r) {
 });
 ```
 
-Note: you can make and use your own middleware, just be sure it implements the middleware interface (`PikaJew002\Handrolled\Interfaces\Middleware`);
+Note: you can make and use your own middleware, just be sure it implements the middleware interface (`PikaJew002\Handrolled\Interfaces\Middleware`).
 
 This routes file assumes a few things:
 
-First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced under `App\Http\Controllers`;
+First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced under `App\Http\Controllers`.
 Second, in order to use the `AuthenticateSession` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
 
 ```php
@@ -282,7 +282,7 @@ class User extends Entity implements UserInterface
 }
 ```
 
-This example model (or database entity) defines the table name and columns on the class and assumes the database already has this table created;
+This example model (or database entity) defines the table name and columns on the class and assumes the database already has this table created.
 
 Along with a `UsersController.php` file:
 
@@ -357,7 +357,7 @@ class InvokableController
 }
 ```
 
-These example controllers illustrate how to use controllers, models, and return responses;
+These example controllers illustrate how to use controllers, models, and return responses.
 
 To use your own classes/code, be sure to add an autoload block to your `composer.json` file like so (replace `src/` with wherever your project classes are located if different):
 
@@ -371,7 +371,7 @@ To use your own classes/code, be sure to add an autoload block to your `composer
 
 # Wrapping Up
 
-That's about it; Now get out there and light up your next idea (or at least blow some smoke);
+That's about it. Now get out there and light up your next idea (or at least blow some smoke).
 
 # License
-The Handrolled framework is open-sourced software licensed under the MIT license;
+The Handrolled framework is open-sourced software licensed under the MIT license.
