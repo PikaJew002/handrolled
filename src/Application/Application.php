@@ -118,7 +118,7 @@ class Application extends Container implements ContainerInterface
         $this->configPath = $configPath;
     }
 
-    public function bootConfig(string $envPath = '', string $configPath = 'config')
+    public function bootConfig(string $envPath = '', string $configPath = 'config'): void
     {
         if($envPath === '') {
             $envPath = $this->projectPath;
@@ -142,7 +142,7 @@ class Application extends Container implements ContainerInterface
         $this->config($configFiles);
     }
 
-    public function bootRoutes(string $routesPath = 'routes/api.php')
+    public function bootRoutes(string $routesPath = 'routes/api.php'): void
     {
         if($routesPath === '') {
             $routesPath = $this->projectPath;
@@ -174,7 +174,7 @@ class Application extends Container implements ContainerInterface
         $this->setAlias(DatabaseInterface::class, $dbConfig['class']);
     }
 
-    public function bootAuth()
+    public function bootAuth(): void
     {
         $this->setAlias(UserInterface::class, $this->config('auth.user'));
     }
