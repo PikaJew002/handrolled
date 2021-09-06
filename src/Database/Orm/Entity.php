@@ -1,8 +1,10 @@
 <?php
 
-namespace PikaJew002\Handrolled\Database\ORM;
+namespace PikaJew002\Handrolled\Database\Orm;
 
 use Exception;
+use PikaJew002\Handrolled\Database\Orm\Exceptions\MalformedModelException;
+use PikaJew002\Handrolled\Database\Orm\Exceptions\ModelPropertyNotFoundException;
 use PikaJew002\Handrolled\Application\Application;
 use PikaJew002\Handrolled\Interfaces\Database;
 use PikaJew002\Handrolled\Traits\UsesContainer;
@@ -20,7 +22,18 @@ abstract class Entity
         return static::getContainer()->get(static::$connection);
     }
 
-    protected static function morph(array $object): self
+    public static function getTableName(): string
+    {
+        $classReflect = new ReflectionClass(get_called_class());
+        $classProperties = $classReflect->getDefaultProperties();
+        if(is_null(!isset($classProperties['tableName']))) {
+            throw new MalformedModelException($classReflect->getName());
+        }
+
+        return $classProperties['tableName'];
+    }
+
+    public static function morph(array $object): self
     {
         $class = new ReflectionClass(get_called_class());
         $entity = $class->newInstance();
@@ -148,5 +161,85 @@ abstract class Entity
             return $db->prepare("DELETE FROM $tableName WHERE id = ?")->execute([$this->id]);
         }
         return false;
+    }
+
+    protected static function getClassAndProps(): array
+    {
+        $classReflect = new ReflectionClass(get_called_class());
+
+        $properties = array_map(function($item) {
+                return $item->getName();
+            },
+            $classReflect->getProperties(ReflectionProperty::IS_PUBLIC)
+        );
+
+        return [$classReflect->getName(), $properties];
+    }
+
+    protected static function assertColumnsExist(array $columns, array $properties): void
+    {
+        assert(
+            static::doColumnsExists($columns, $properties),
+            new ModelPropertyNotFoundException($columnName, $classReflect->getName())
+        );
+    }
+
+    protected static function doColumnsExists(array $columns, array $properties): bool
+    {
+        foreach($columns as $column) {
+            if(!in_array($column, $properties)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static function select($columns = []): QueryBuilder
+    {
+        [$className, $properties] = static::getClassAndProps();
+
+        $columns = is_string($columns) ? [$columns] : $columns;
+
+        static::assertColumnsExist($columns, $properties);
+
+        $queryBuilder = new QueryBuilder($className, static::getTableName(), static::getDbInstance());
+
+        $queryBuilder->select($columns);
+
+        return $queryBuilder;
+    }
+
+    public static function where(string $columnName, string $operator, $value, string $boolean = 'AND'): QueryBuilder
+    {
+        [$className, $properties] = static::getClassAndProps();
+
+        static::assertColumnsExist([$columnName], $properties);
+
+        $queryBuilder = new QueryBuilder($className, static::getTableName(), static::getDbInstance());
+
+        $queryBuilder->where($columnName, $operator, $value, $boolean);
+
+        return $queryBuilder;
+    }
+
+    public static function whereEquals(string $columnName, $value)
+    {
+        $db = static::getDbInstance();
+        $tableName = static::getTableName();
+    }
+
+    public static function whereGreaterThan(string $columnName, $value)
+    {
+        //
+    }
+
+    public static function whereLessThan(string $columnName, $value)
+    {
+        //
+    }
+
+    public static function whereLike(string $columnName, $value)
+    {
+        //
     }
 }
