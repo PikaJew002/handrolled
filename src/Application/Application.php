@@ -12,10 +12,7 @@ use PikaJew002\Handrolled\Container\Container;
 use PikaJew002\Handrolled\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
-use PikaJew002\Handrolled\Http\Responses\MethodNotAllowedResponse;
-use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
-use PikaJew002\Handrolled\Http\Responses\UnauthenticatedResponse;
-use PikaJew002\Handrolled\Http\Responses\UnauthorizedResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
 use PikaJew002\Handrolled\Interfaces\Database as DatabaseInterface;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
@@ -69,25 +66,28 @@ class Application extends Container implements ContainerInterface
     {
         $routeInfo = $this->routeDispatcher->dispatch($request->input('_method', $request->method), $request->uri);
         if($routeInfo[0] == Dispatcher::NOT_FOUND) {
-            return new NotFoundResponse();
+            return new HttpErrors\NotFoundResponse();
         }
         if($routeInfo[0] == Dispatcher::METHOD_NOT_ALLOWED) {
-            return new MethodNotAllowedResponse($routeInfo[1]);
+            return new HttpErrors\MethodNotAllowedResponse($routeInfo[1]);
         }
         $router = new Router($this, $request, $routeInfo);
         try {
             return $router->pipeRequestThroughToResponse($this->config('route.middleware'));
         } catch(HttpException $e) {
-            if($e->code === 400) {
-                return new UnauthenticatedResponse($e->message);
+            if($e->httpCode === 400) {
+                return new HttpErrors\BadRequestResponse($e->errorMessage);
             }
-            if($e->code === 401) {
-                return new UnauthenticatedResponse($e->message);
+            if($e->httpCode === 401) {
+                return new HttpErrors\UnauthorizedResponse($e->errorMessage);
             }
-            if($e->code === 403) {
-              return new UnauthorizedResponse($e->message);
+            if($e->httpCode === 403) {
+                return new HttpErrors\ForbiddenResponse($e->errorMessage);
             }
-            throw $e;
+            if($e->httpCode === 408) {
+                return new HttpErrors\RequestTimeoutResponse($e->errorMessage);
+            }
+            return new HttpErrors\ServerErrorResponse($e->errorMessage);
         }
     }
 
