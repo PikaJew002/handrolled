@@ -5,14 +5,14 @@ namespace PikaJew002\Handrolled\Traits;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Auth\Manager as AuthManager;
 
-trait UsesAuthCookie
+trait Edibles
 {
-    public static function hasAuthCookie(Request $request): bool
+    public static function hasAuthEdible(Request $request): bool
     {
         return isset($request->cookies['puff_puff_pass']) && !is_null($request->cookies['puff_puff_pass']);
     }
 
-    public static function matchesAuthCookie(Request $request): ?self
+    public static function matchesAuthEdible(Request $request): ?self
     {
         [$idHash, $passwordHash] = explode('|', base64_decode(urldecode($request->cookies['puff_puff_pass'])));
 
@@ -25,7 +25,7 @@ trait UsesAuthCookie
         return null;
     }
 
-    public function setAuthCookie(Request $request, AuthManager $auth): void
+    public function setAuthEdible(Request $request, AuthManager $auth): void
     {
         $cookieConfig = $auth->config->getOrSet('auth.drivers.cookies');
         setcookie(
@@ -39,7 +39,7 @@ trait UsesAuthCookie
         );
     }
 
-    public static function invalidateAuthCookie(AuthManager $auth)
+    public static function invalidateAuthEdible(AuthManager $auth)
     {
         setcookie(
             'puff_puff_pass',

@@ -11,7 +11,7 @@ use ReflectionMethod;
 
 class Route
 {
-    public Container $container;
+    protected Container $container;
     public array $middleware;
     public $resolver;
 
