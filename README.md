@@ -48,9 +48,12 @@ $app->bootRoutes(realpath(__DIR__.'/../routes/api.php'));
 
 $app->bootDatabase();
 
-$response = $app->handleRequest();
-
-$response->render();
+if($app->hasBootExceptions()) {
+    $app->renderExceptions();
+} else {
+    $response = $app->handleRequest();
+    $response->render();
+}
 ```
 
 I find this to be a bit cluttered, so my personal preference is to extract some of the set up into a boot file such as `/{project_dir}/boot/boot.php` and require it into my `/{project_dir}/{public_dir}/index.php` file like so:
@@ -67,7 +70,6 @@ $app->bootRoutes();
 // same as $app->bootRoutes('routes/api.php');
 
 $app->bootDatabase();
-// same as $app->bootDatabase('mysql');
 
 return $app;
 
@@ -76,9 +78,12 @@ require __DIR__.'/../vendor/autoload.php';
 
 $app = require __DIR__.'/../boot/boot.php';
 
-$response = $app->handleRequest();
-
-$response->render();
+if($app->hasBootExceptions()) {
+    $app->renderExceptions();
+} else {
+    $response = $app->handleRequest();
+    $response->render();
+}
 ```
 
 # Required Configuration
@@ -105,14 +110,38 @@ The `config` directory must have have `database.php` which should look like this
 
 ```php
 // {project_dir}/config/database.php
+use PikaJew002\Handrolled\Database\Implementations\MySQL;
+use PikaJew002\Handrolled\Database\Implementations\PostgreSQL;;
 
 return [
-    'mysql' => [
-        'host' => $_ENV['DB_HOST'],
-        'dbname' => $_ENV['DB_DATABASE'],
-        'username' => $_ENV['DB_USERNAME'],
-        'password' => $_ENV['DB_PASSWORD'],
-        'class' => \PikaJew002\Handrolled\Database\Implementations\MySQL::class,
+    /*
+      host: The host of the database
+      database: The Database name
+      username: The username to connect to the database
+      password: The password that goes with the username
+      class: The implementation class that extends the PDO class
+      port (optional): The port to connect on
+
+      Currently supported database drivers:
+        - MySQL (default)
+        - PostgreSQL
+    */
+    'driver' => env('DB_DRIVER', 'mysql'),
+    'drivers' => [
+        'mysql' => [
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'database' => env('DB_DATABASE', 'handrolled'),
+            'username' => env('DB_USERNAME', 'handrolled'),
+            'password' => env('DB_PASSWORD', ''),
+            'class' => MySQL::class,
+        ],
+        'pgsql' => [
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'database' => env('DB_DATABASE', 'handrolled'),
+            'username' => env('DB_USERNAME', 'handrolled'),
+            'password' => env('DB_PASSWORD', ''),
+            'class' => PostgreSQL::class,
+        ],
     ],
 ];
 ```
@@ -132,7 +161,7 @@ return [
 ];
 ```
 
-In order to use the `AuthenticateSession` middleware (see section below for details), you'll need to have a `auth.php` file.
+In order to use the `AuthenticateEdible` middleware (see section below for details), you'll need to have a `auth.php` file.
 
 ```php
 // {project_dir}/config/auth.php
@@ -164,7 +193,7 @@ The `routes/api.php` file should/can look something like this:
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\InvokableController;
 use FastRoute\RouteCollector;
-use PikaJew002\Handrolled\Http\Middleware\AuthenticateSession;
+use PikaJew002\Handrolled\Http\Middleware\AuthenticateEdible;
 use PikaJew002\Handrolled\Http\Responses\JsonResponse;
 use function FastRoute\simpleDispatcher;
 
@@ -173,28 +202,28 @@ return simpleDispatcher(function(RouteCollector $r) {
         $r->get('/users', [
             'class' => UsersController::class,
             'method' => 'index',
-            'middleware' => AuthenticateSession::class,
+            'middleware' => AuthenticateEdible::class,
         ]);
         $r->get('/user/{id:\d+}', [
             'class' => UsersController::class,
             'method' => 'view',
-            'middleware' => AuthenticateSession::class,
+            'middleware' => AuthenticateEdible::class,
         ]);
         $r->post('/user', [
             'class' => UsersController::class,
             'method' => 'store',
-            'middleware' => AuthenticateSession::class,
+            'middleware' => AuthenticateEdible::class,
         ]);
         $r->delete('/user/{id:\d+}', [
             'class' => UsersController::class,
             'method' => 'destroy',
-            'middleware' => AuthenticateSession::class,
+            'middleware' => AuthenticateEdible::class,
         ]);
         $r->addRoute('GET', '/closure/optional-title[/{title}]', [
             'closure' => function($title = "", Request $request) {
                 return new JsonResponse(['title' => $title]);
             },
-            'middleware' => AuthenticateSession::class,
+            'middleware' => AuthenticateEdible::class,
         ]);
         // Alternatively if not adding middleware:
         $r->addRoute('GET', '/closure/optional-title[/{title}]', function($title = "", Request $request) {
@@ -203,7 +232,7 @@ return simpleDispatcher(function(RouteCollector $r) {
     });
     $->addRoute(['PATCH', 'PUT'], '/edit-something', [
         'class' => InvokableController::class,
-        'middleware' => AuthenticateSession::class,
+        'middleware' => AuthenticateEdible::class,
     ]);
     // Alternatively if not adding middleware:
     $->addRoute(['PATCH', 'PUT'], '/edit-something', InvokableController::class);
@@ -215,14 +244,14 @@ Note: you can make and use your own middleware, just be sure it implements the m
 This routes file assumes a few things:
 
 First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced under `App\Http\Controllers`.
-Second, in order to use the `AuthenticateSession` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
+Second, in order to use the `AuthenticateEdible` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
 
 ```php
 // {project_dir}/src/Models/User.php
 
 namespace App\Models;
 
-use PikaJew002\Handrolled\Database\ORM\Entity;
+use PikaJew002\Handrolled\Database\Orm\Entity;
 use PikaJew002\Handrolled\Interfaces\User as UserInterface;
 use PikaJew002\Handrolled\Traits\UsesAuthCookie;
 
@@ -291,7 +320,7 @@ Along with a `UsersController.php` file:
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use PikaJew002\Handrolled\Exceptions\HttpException;
+use PikaJew002\Handrolled\Exceptions\Http\HttpException;
 use PikaJew002\Handrolled\Http\Responses\JsonResponse;
 use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
 use PikaJew002\Handrolled\Interfaces\Response;
