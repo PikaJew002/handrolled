@@ -8,9 +8,9 @@ use Closure, Exception;
 
 class Pipeline
 {
-    public Container $container;
-    public Request $request;
-    public array $pipes;
+    protected Container $container;
+    protected Request $request;
+    protected array $pipes;
 
     public function __construct(Container $container, Request $request, array $pipes)
     {
@@ -46,18 +46,8 @@ class Pipeline
     {
         return function($stack, $pipe) {
             return function($request) use ($stack, $pipe) {
-                try {
-                    $pipeObj = $this->container->get($pipe);
-                    return $pipeObj->handler($request, $stack);
-                } catch(Exception $e) {
-                    $this->handleException($request, $e);
-                }
+                return $this->container->get($pipe)->handler($request, $stack);
             };
         };
-    }
-
-    public function handleException($passable, Exception $e)
-    {
-        throw $e;
     }
 }
