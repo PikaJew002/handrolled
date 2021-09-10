@@ -28,15 +28,13 @@ class Container implements ContainerInterface
         return static::$containerInstance;
     }
 
-    public function get($abstract)
+    public function get($abstract): object
     {
+        // get object binding from alias(es), if present
+        $abstract = $this->getAlias($abstract);
         // Cheack for abstract in object bindings
         if(isset($this->objectBindings[$abstract])) {
             return $this->objectBindings[$abstract]($this);
-        }
-        // Cheack for abstract in alias bindings, then get object binding from that
-        if(isset($this->aliasBindings[$abstract])) {
-            return $this->get($this->aliasBindings[$abstract]);
         }
         $reflection = new ReflectionClass($abstract);
         $dependencies = $this->buildDependencies($reflection, $abstract);
@@ -45,6 +43,11 @@ class Container implements ContainerInterface
         });
 
         return $reflection->newInstanceArgs($dependencies);
+    }
+
+    public function getAlias(string $abstract): string
+    {
+        return isset($this->aliasBindings[$abstract]) ? $this->getAlias($this->aliasBindings[$abstract]) : $abstract;
     }
 
     public function getValue($abstract, $pos)

@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 use PDO;
 use PikaJew002\Handrolled\Container\Container;
 use PikaJew002\Handrolled\Database\Orm\Exceptions\DatabaseDriverException;
-use PikaJew002\Handrolled\Exceptions\Http\HttpException;
+use PikaJew002\Handrolled\Http\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\ExceptionHtmlResponse;
@@ -79,19 +79,7 @@ class Application extends Container implements ContainerInterface
             $router = new Router($this, $request, $routeInfo);
             return $router->pipeRequestThroughToResponse($this->config('route.middleware'));
         } catch(HttpException $e) {
-            if($e->httpCode === 400) {
-                return new HttpErrors\BadRequestResponse($e->errorMessage);
-            }
-            if($e->httpCode === 401) {
-                return new HttpErrors\UnauthorizedResponse($e->errorMessage);
-            }
-            if($e->httpCode === 403) {
-                return new HttpErrors\ForbiddenResponse($e->errorMessage);
-            }
-            if($e->httpCode === 408) {
-                return new HttpErrors\RequestTimeoutResponse($e->errorMessage);
-            }
-            return new HttpErrors\ServerErrorResponse($e->errorMessage);
+            return $this->convertHttpExceptionToResponse($e);
         } catch(Throwable $e) {
             return $this->convertExceptionToResponse($e);
         }
@@ -183,7 +171,24 @@ class Application extends Container implements ContainerInterface
         $this->setAlias(UserInterface::class, $this->config('auth.user'));
     }
 
-    public function convertExceptionToResponse(Throwable $e): ResponseInterface
+    protected function convertHttpExceptionToResponse(HttpException $e): ResponseInterface
+    {
+        if($e->httpCode === 400) {
+            return new HttpErrors\BadRequestResponse($e->errorMessage);
+        }
+        if($e->httpCode === 401) {
+            return new HttpErrors\UnauthorizedResponse($e->errorMessage);
+        }
+        if($e->httpCode === 403) {
+            return new HttpErrors\ForbiddenResponse($e->errorMessage);
+        }
+        if($e->httpCode === 408) {
+            return new HttpErrors\RequestTimeoutResponse($e->errorMessage);
+        }
+        return new HttpErrors\ServerErrorResponse($e->errorMessage);
+    }
+
+    protected function convertExceptionToResponse(Throwable $e): ResponseInterface
     {
         if($this->config('app.debug') === 'true') {
             return new ExceptionHtmlResponse($e);
