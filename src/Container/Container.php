@@ -28,7 +28,7 @@ class Container implements ContainerInterface
         return static::$containerInstance;
     }
 
-    public function get($abstract)
+    public function get($abstract): object
     {
         // Cheack for abstract in object bindings
         if(isset($this->objectBindings[$abstract])) {
