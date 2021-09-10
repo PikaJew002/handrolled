@@ -5,6 +5,7 @@ namespace PikaJew002\Handrolled\Router;
 use Closure;
 use Exception;
 use PikaJew002\Handrolled\Interfaces\Container;
+use PikaJew002\Handrolled\Interfaces\Response;
 use PikaJew002\Handrolled\Http\Request;
 use ReflectionFunction;
 use ReflectionMethod;
@@ -13,74 +14,40 @@ class Route
 {
     protected Container $container;
     public array $middleware;
-    public $resolver;
+    public Closure $resolver;
 
-    /**
-     * $handler param can be array|callable|string
-     * $code is not used and only included for array destructuring of $routeInfo array from route dispatch
-     */
     public function __construct(Container $container, int $code, $handler, array $params)
     {
         $this->container = $container;
-        $this->middleware = [];
-        if(is_array($handler)) {
-            $this->middleware = isset($handler['middleware']) ? $handler['middleware'] : [];
-            if(isset($handler['class'])) {
-                if(isset($handler['method'])) {
-                    $this->resolver = function($request) use ($handler, $params) {
-                        return $this->resolveFromClassMethod($request, $params, $handler['class'], $handler['method']);
-                    };
-                } else {
-                    $this->resolver = function($request) use ($handler, $params) {
-                        return $this->resolveFromClassMethod($request, $params, $handler['class'], '__invoke');
-                    };
-                }
-            } else if(isset($handler['closure'])) {
-                $this->resolver = function($request) use ($handler, $params) {
-                    return $this->resolveFromClosure($request, $params, $handler['closure']);
-                };
-            } else {
-                throw new Exception('Badly formed route. Handler array should have key class or closure.');
-            }
-        } else if(is_callable($handler)) {
-            $this->resolver = function($request) use ($handler, $params) {
-                return $this->resolveFromClosure($request, $params, $handler);
+        $this->middleware = $handler['middleware'];
+        if(!is_null($handler['class']) && !is_null($handler['method'])) {
+            $this->resolver = function(Request $request) use ($handler, $params) {
+                return $this->resolveFromClassMethod($request, $params, $handler['class'], $handler['method']);
             };
-        } else if(is_string($handler)) {
-            $this->resolver = function($request) use ($handler, $params) {
-                return $this->resolveFromClassMethod($request, $params, $handler, '__invoke');
+        } else if(!is_null($handler['closure'])) {
+            $this->resolver = function(Request $request) use ($handler, $params) {
+                return $this->resolveFromClosure($request, $params, $handler['closure']);
             };
         } else {
-            throw new Exception('Badly formated route. Handler should be array or callable or string.');
+            throw new Exception('Badly formed route. Handler array should have key class or closure.');
         }
     }
 
-    public function getResolver()
+    protected function resolveFromClosure(Request $request, array $params, Closure $closure): Response
     {
-        return $this->resolver;
-    }
+        $closureParams = $this->getArgs((new ReflectionFunction($closure))->getParameters(), $params, $request);
 
-    protected function resolveFromClosure(Request $request, array $params, Closure $closure, array $middleware = [])
-    {
-        $closureParams = $this->getArgs(
-            (new ReflectionFunction($closure))->getParameters(),
-            $params,
-            $request
-        );
         return $closure(...$closureParams);
     }
 
-    protected function resolveFromClassMethod(Request $request, array $params, string $controllerClass, string $controllerMethod)
+    protected function resolveFromClassMethod(Request $request, array $params, string $class, string $method): Response
     {
-        $methodParams = $this->getArgs(
-            (new ReflectionMethod($controllerClass, $controllerMethod))->getParameters(),
-            $params,
-            $request
-        );
-        if($controllerMethod === '__invoke') {
-            return $this->container->get($controllerClass)(...$methodParams);
+        $methodParams = $this->getArgs((new ReflectionMethod($class, $method))->getParameters(), $params, $request);
+        if($method === '__invoke') {
+            return $this->container->get($class)(...$methodParams);
         }
-        return $this->container->get($controllerClass)->$controllerMethod(...$methodParams);
+
+        return $this->container->get($class)->$method(...$methodParams);
     }
 
     protected function getArgs(array $reflectionParams = [], array $params = [], Request $request): array
@@ -101,6 +68,7 @@ class Route
             }
             $controllerParams[] = $this->container->get($param->getType()->getName());
         }
+
         return $controllerParams;
     }
 }

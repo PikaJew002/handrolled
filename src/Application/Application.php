@@ -143,7 +143,8 @@ class Application extends Container implements ContainerInterface
         } else if(strlen($routesPath) >= 1 && strncmp($routesPath, '/', 1) !== 0) {
             $routesPath = $this->projectPath.'/'.$routesPath;
         }
-        $this->routeDispatcher = require realpath($routesPath);
+        $routeCollector = require realpath($routesPath);
+        $this->routeDispatcher = Router::processRoutes($routeCollector);
     }
 
     public function bootDatabase(): void
