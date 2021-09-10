@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 use PDO;
 use PikaJew002\Handrolled\Container\Container;
 use PikaJew002\Handrolled\Database\Orm\Exceptions\DatabaseDriverException;
-use PikaJew002\Handrolled\Exceptions\Http\HttpException;
+use PikaJew002\Handrolled\Http\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\ExceptionHtmlResponse;
