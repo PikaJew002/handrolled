@@ -3,7 +3,7 @@
 namespace PikaJew002\Handrolled\Http\Middleware;
 
 use PikaJew002\Handrolled\Auth\Manager as AuthManager;
-use PikaJew002\Handrolled\Exceptions\Http\HttpException;
+use PikaJew002\Handrolled\Http\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Interfaces\Middleware;
 
