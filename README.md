@@ -42,9 +42,9 @@ require __DIR__.'/../vendor/autoload.php';
 
 $app = new \PikaJew002\Handrolled\Application\Application();
 
-$app->bootConfig(realpath(__DIR__.'/../'), realpath(__DIR__.'/../config/'));
+$app->bootConfig('../', 'config');
 
-$app->bootRoutes(realpath(__DIR__.'/../routes/api.php'));
+$app->bootRoutes('routes/api.php');
 
 $app->bootDatabase();
 
@@ -189,61 +189,40 @@ The `routes/api.php` file should/can look something like this:
 
 ```php
 // {project_dir}/routes/api.php
-
+use App\Http\Controllers\Auth;
 use App\Http\Controllers\UsersController;
-use App\Http\Controllers\InvokableController;
-use FastRoute\RouteCollector;
 use PikaJew002\Handrolled\Http\Middleware\AuthenticateEdible;
-use PikaJew002\Handrolled\Http\Responses\JsonResponse;
-use function FastRoute\simpleDispatcher;
+use PikaJew002\Handrolled\Router\Definition\RouteCollector;
+use PikaJew002\Handrolled\Router\Definition\RouteGroup;
 
-return simpleDispatcher(function(RouteCollector $r) {
-    $r->addGroup('/api', function (RouteCollector $r) {
-        $r->get('/users', [
-            'class' => UsersController::class,
-            'method' => 'index',
-            'middleware' => AuthenticateEdible::class,
-        ]);
-        $r->get('/user/{id:\d+}', [
-            'class' => UsersController::class,
-            'method' => 'view',
-            'middleware' => AuthenticateEdible::class,
-        ]);
-        $r->post('/user', [
-            'class' => UsersController::class,
-            'method' => 'store',
-            'middleware' => AuthenticateEdible::class,
-        ]);
-        $r->delete('/user/{id:\d+}', [
-            'class' => UsersController::class,
-            'method' => 'destroy',
-            'middleware' => AuthenticateEdible::class,
-        ]);
-        $r->addRoute('GET', '/closure/optional-title[/{title}]', [
-            'closure' => function($title = "", Request $request) {
-                return new JsonResponse(['title' => $title]);
-            },
-            'middleware' => AuthenticateEdible::class,
-        ]);
-        // Alternatively if not adding middleware:
-        $r->addRoute('GET', '/closure/optional-title[/{title}]', function($title = "", Request $request) {
-            return new JsonResponse(['title' => $title]);
-        });
-    });
-    $->addRoute(['PATCH', 'PUT'], '/edit-something', [
-        'class' => InvokableController::class,
-        'middleware' => AuthenticateEdible::class,
-    ]);
-    // Alternatively if not adding middleware:
-    $->addRoute(['PATCH', 'PUT'], '/edit-something', InvokableController::class);
+$route = new RouteCollector();
+
+$route->addGroup('/api', function (RouteGroup $routeGroup) {
+    $routeGroup->get('/users', [UsersController::class, 'index']);
+    // an alias for $routeGroup->addRoute('GET', '/users', [UsersController::class, 'index']);
+    $routeGroup->get('/user/{id:\d+}', [UsersController::class, 'view']);
+    $routeGroup->post('/user', [UsersController::class, 'store']);
+    $routeGroup->delete('/user/{id:\d+}', [UsersController::class, 'destroy']);
+    $routeGroup->addRoute('GET', '/closure/optional-title[/{title}]', function($title = '', Request $request) {
+        return new JsonResponse(['title' => $title]);
+    })->middleware(AuthenticateEdible::class);
+})->middleware(AuthenticateEdible::class);
+
+$route->addGroup('/auth', function(RouteGroup $routeGroup) {
+    $routeGroup->post('/user/login', Auth\LoginController::class);
+    $routeGroup->post('/user/logout', Auth\LogoutController::class)->middleware(AuthenticateEdible::class);
 });
+
+$route->addRoute(['PATCH', 'PUT'], '/edit-something', InvokableController::class)->middleware(AuthenticateEdible::class);
+
+return $route;
 ```
 
 Note: you can make and use your own middleware, just be sure it implements the middleware interface (`PikaJew002\Handrolled\Interfaces\Middleware`).
 
 This routes file assumes a few things:
 
-First, that you have created `UsersController` and `InvokableController` classes somewhere and are namespaced under `App\Http\Controllers`.
+First, that you have created `UsersController`, `InvokableController`, `Auth\LoginController`, and `Auth\LogoutController` classes somewhere and are namespaced under `App\Http\Controllers`.
 Second, in order to use the `AuthenticateEdible` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
 
 ```php
@@ -300,14 +279,6 @@ class User extends Entity implements UserInterface
 
         return null;
     }
-
-    /*
-     * -> must implement in every class that extends Entity
-     */
-    public static function getTableName(): string
-    {
-        return $tableName ?? "users";
-    }
 }
 ```
 
@@ -320,9 +291,10 @@ Along with a `UsersController.php` file:
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use PikaJew002\Handrolled\Exceptions\Http\HttpException;
+use PikaJew002\Handrolled\Http\Exceptions\HttpException;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\NotFoundResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\ServerErrorResponse;
 use PikaJew002\Handrolled\Http\Responses\JsonResponse;
-use PikaJew002\Handrolled\Http\Responses\NotFoundResponse;
 use PikaJew002\Handrolled\Interfaces\Response;
 
 class UsersController
@@ -363,7 +335,7 @@ class UsersController
             return new JsonResponse(['user' => $user]);
         }
 
-        throw new HttpException(500, 'Database error! Could not delete user!');
+        return new ServerErrorResponse('Database error! Could not delete user!');
     }
 }
 ```
