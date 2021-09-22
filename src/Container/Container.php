@@ -80,7 +80,7 @@ class Container implements ContainerInterface
         $this->objectBindings[$abstract] = $factory;
     }
 
-    protected function buildDependencies(ReflectionClass $reflection, string $abstract)
+    protected function buildDependencies(ReflectionClass $reflection, string $abstract): array
     {
         $constructor = $reflection->getConstructor();
         if(is_null($constructor)) {
