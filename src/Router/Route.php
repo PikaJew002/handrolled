@@ -7,6 +7,7 @@ use Exception;
 use PikaJew002\Handrolled\Interfaces\Container;
 use PikaJew002\Handrolled\Interfaces\Response;
 use PikaJew002\Handrolled\Http\Request;
+use PikaJew002\Handrolled\Http\Responses\ViewResponse;
 use ReflectionFunction;
 use ReflectionMethod;
 
@@ -36,18 +37,25 @@ class Route
     protected function resolveFromClosure(Request $request, array $params, Closure $closure): Response
     {
         $closureParams = $this->getArgs((new ReflectionFunction($closure))->getParameters(), $params, $request);
+        $response = $closure(...$closureParams);
+        if($response instanceof ViewResponse) {
+            $response = $response->buildFromContainer($this->container);
+        }
 
-        return $closure(...$closureParams);
+        return $response;
     }
 
     protected function resolveFromClassMethod(Request $request, array $params, string $class, string $method): Response
     {
         $methodParams = $this->getArgs((new ReflectionMethod($class, $method))->getParameters(), $params, $request);
-        if($method === '__invoke') {
-            return $this->container->get($class)(...$methodParams);
+        $response = $method === '__invoke'
+                    ? $this->container->get($class)(...$methodParams)
+                    : $this->container->get($class)->$method(...$methodParams);
+        if($response instanceof ViewResponse) {
+            $response = $response->buildFromContainer($this->container);
         }
 
-        return $this->container->get($class)->$method(...$methodParams);
+        return $response;
     }
 
     protected function getArgs(array $reflectionParams = [], array $params = [], Request $request): array
