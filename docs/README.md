@@ -7,6 +7,8 @@ It uses very few dependencies and the ones that have been pulled in are small an
 
 I'll be upfront: this project exists because I got the munchies to learn how modern PHP frameworks did magical stuff like routing, dependency injection, object-relational mappers, load configuration, etc. All that magical stuff is even more cool when you pull back the curtain and dig into some code and try to implement it for yourself. Several patterns here are heavily inspired by the Laravel framework, because that's my technical background as a programmer that uses Laravel every day.
 
+Do yourself a favor and don't use this in a production level, enterprise app. It'll probably change a good deal.
+
 # Installation
 
 The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer install), then head back here and read on starting with `Usage` to learn more in-depth.
@@ -44,6 +46,8 @@ $app = new \PikaJew002\Handrolled\Application\Application();
 
 $app->bootConfig('../', 'config');
 
+$app->bootViews('resources/views', false);
+
 $app->bootRoutes('routes/api.php');
 
 $app->bootDatabase();
@@ -65,6 +69,10 @@ $app = new \PikaJew002\Handrolled\Application\Application();
 
 $app->bootConfig();
 // same as $app->bootConfig('../', 'config');
+
+$app->bootViews();
+// same as $app->bootViews('resources/views', false, 'boot/cache/views');
+// alternatively, to use caching: $app->bootViews('resources/views', true, 'boot/cache/views');
 
 $app->bootRoutes();
 // same as $app->bootRoutes('routes/api.php');
@@ -192,10 +200,15 @@ The `routes/api.php` file should/can look something like this:
 use App\Http\Controllers\Auth;
 use App\Http\Controllers\UsersController;
 use PikaJew002\Handrolled\Http\Middleware\AuthenticateEdible;
+use PikaJew002\Handrolled\Http\Responses\ViewResponse;
 use PikaJew002\Handrolled\Router\Definition\RouteCollector;
 use PikaJew002\Handrolled\Router\Definition\RouteGroup;
 
 $route = new RouteCollector();
+
+$route->get('/', function() {
+    return new ViewResponse('home.twig.html', ['variable' => 'This is some variable content']);
+});
 
 $route->addGroup('/api', function (RouteGroup $routeGroup) {
     $routeGroup->get('/users', [UsersController::class, 'index']);
@@ -223,7 +236,8 @@ Note: you can make and use your own middleware, just be sure it implements the m
 This routes file assumes a few things:
 
 First, that you have created `UsersController`, `InvokableController`, `Auth\LoginController`, and `Auth\LogoutController` classes somewhere and are namespaced under `App\Http\Controllers`.
-Second, in order to use the `AuthenticateEdible` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
+Second, that you have a template `resources/views/home.twig.html`.
+Third, in order to use the `AuthenticateEdible` middleware you will need to have a `User` model (which the class is defined in `config/auth.php`) that looks something like this (must implement the interface and use the trait):
 
 ```php
 // {project_dir}/src/Models/User.php
@@ -368,6 +382,22 @@ To use your own classes/code, be sure to add an autoload block to your `composer
         "App\\": "src/"
     }
 }
+```
+
+# Frontend View Templates
+
+The Twig templating engine is used to render `ViewResponse`s. For the example templates in `PikaJew002/handrolled-project`, TailwindCSS is used to add styling with CSS using the TailwindCSS CLI tool with JIT mode.
+
+To start a watcher that will recompile when your templates change, run this:
+```sh
+npx tailwindcss -o public/css/app.css --watch --jit --purge="resources/views/**/*.twig.html"
+```
+
+This assumes you have `node` and `npm` installed on your machine. It will prompt you the first time to install the `tailwindcss` npm package (I assume globally).
+
+To compile your CSS for production, run this:
+```sh
+NODE_ENV=production npx tailwindcss -o public/css/app.css --jit --purge="resources/views/**/*.twig.html" --minify
 ```
 
 # Wrapping Up
