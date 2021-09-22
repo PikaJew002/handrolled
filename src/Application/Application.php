@@ -24,6 +24,8 @@ use PikaJew002\Handrolled\Support\Configuration;
 use ReflectionFunction;
 use ReflectionMethod;
 use Throwable;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
 
 class Application extends Container implements ContainerInterface
 {
@@ -134,6 +136,27 @@ class Application extends Container implements ContainerInterface
             return [explode('.', $fileName)[0] => require($configPath .'/'. $fileName)];
         })->all();
         $this->config($configFiles);
+    }
+
+    public function bootViews(string $viewsPath = 'resources/views', bool $useCache = false, string $cachePath = 'boot/cache/views'): void
+    {
+        if($viewsPath === '') {
+            $viewsPath = $this->projectPath;
+        } else if(strlen($viewsPath) >= 1 && strncmp($viewsPath, '/', 1) !== 0) {
+            $viewsPath = $this->projectPath.'/'.$viewsPath;
+        }
+        if($useCache) {
+            if($cachePath === '') {
+                $cachePath = $this->projectPath;
+            } else if(strlen($cachePath) >= 1 && strncmp($cachePath, '/', 1) !== 0) {
+                $cachePath = $this->projectPath.'/'.$cachePath;
+            }
+        } else {
+            $cachePath = false;
+        }
+        $this->set(Environment::class, function($app) use ($viewsPath, $cachePath) {
+            return new Environment(new FilesystemLoader($viewsPath), ['cache' => $cachePath]);
+        });
     }
 
     public function bootRoutes(string $routesPath = 'routes/api.php'): void
