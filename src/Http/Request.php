@@ -11,28 +11,52 @@ class Request
     public const HTTP_PATCH = 'PATCH';
     public const HTTP_DELETE = 'DELETE';
 
-    public string $method;
-    public string $uri;
-    public array $server;
-    public array $headers;
-    public array $request;
-    public array $query;
-    public array $files;
-    public array $cookies;
+    protected string $method;
+    protected string $uri;
+    protected array $server;
+    protected array $headers;
+    protected array $request;
+    protected array $query;
+    protected array $files;
+    protected array $cookies;
     protected $user;
-    public $body;
+    protected $body;
 
-    public function __construct()
+    public function __construct(
+        string $uri = '',
+        string $method = 'GET',
+        array $server = [],
+        array $headers = [],
+        array $request = [],
+        array $query = [],
+        array $cookies = [],
+        array $files = [],
+        string $body = ''
+    )
     {
-        $this->server = $_SERVER;
-        $this->method = strtoupper($this->server['REQUEST_METHOD']);
-        $this->uri = $this->parseURI($this->server['REQUEST_URI']);
-        $this->headers = $this->parseHeaders($this->server);
-        $this->body = $this->getBody();
-        $this->query = $this->parseQuery($this->method, $this->server['REQUEST_URI']);
-        $this->request = $this->parseRequest($this->method, $this->headers, $this->body);
-        $this->files = $this->parseFiles();
-        $this->cookies = $this->parseCookies($this->headers);
+        $this->method = $method;
+        $this->uri = $uri;
+        $this->server = $server;
+        $this->headers = $headers;
+        $this->body = $body;
+        $this->query = $query;
+        $this->request = $request;
+        $this->files = $files;
+        $this->cookies = $cookies;
+    }
+
+    public static function createFromGlobals(): self
+    {
+        $uri = $_SERVER['REQUEST_URI'];
+        $method = strtoupper($_SERVER['REQUEST_METHOD']);
+        $server = $_SERVER;
+        $headers = self::parseHeaders($server);
+        $body = file_get_contents('php://input');
+        $query = self::parseQuery($method, $uri);
+        $request = self::parseRequest($method, $headers, $body);
+        $files = self::parseFiles();
+        $cookies = self::parseCookies($headers);
+        return new self($uri, $method, $server, $headers, $request, $query, $cookies, $files, $body);
     }
 
     protected function parseURI(string $uri): string
@@ -44,7 +68,7 @@ class Request
         return rawurldecode($uri);
     }
 
-    protected function parseHeaders(array $server): array
+    protected static function parseHeaders(array $server): array
     {
         $headers = [];
         foreach($server as $key => $value) {
@@ -60,8 +84,7 @@ class Request
 
     public function getBody()
     {
-        $isResource = is_resource($this->body);
-        if($isResource) {
+        if(is_resource($this->body)) {
             rewind($this->body);
             return stream_get_contents($this->body);
         }
@@ -72,7 +95,7 @@ class Request
         return $this->body;
     }
 
-    protected function parseRequest(string $method, array $headers, string $body): array
+    protected static function parseRequest(string $method, array $headers, string $body): array
     {
         if(
             $method === self::HTTP_POST &&
@@ -88,10 +111,11 @@ class Request
         ) {
             return json_decode($body, true);
         }
+
         return [];
     }
 
-    protected function parseQuery(string $method = 'GET', string $uri = ''): array
+    protected static function parseQuery(string $method = 'GET', string $uri = ''): array
     {
         if($method === self::HTTP_GET) {
             return isset($_GET) ? $_GET : [];
@@ -113,17 +137,16 @@ class Request
         return [];
     }
 
-    protected function parseFiles(): array
+    protected static function parseFiles(): array
     {
         return isset($_FILES) ? $_FILES : [];
     }
 
-    protected function parseCookies(array $headers): array
+    protected static function parseCookies(array $headers): array
     {
         $cookiesFromHeaders = [];
         $cookiesFromHeadersStr = isset($headers['COOKIE']) ? $headers['COOKIE'] : '';
         $headerCookieArr = $cookiesFromHeadersStr !== '' ? explode(';', $cookiesFromHeadersStr) : [];
-        $headerCookieArr = explode(';', (isset($headers['COOKIE']) ? $headers['COOKIE'] : ''));
         foreach($headerCookieArr as $cookieRaw) {
             if($cookieRaw === '') continue;
             $cookieParsed = explode('=', $cookieRaw);
@@ -131,7 +154,7 @@ class Request
                 $cookiesFromHeaders[$cookieParsed[0]] = $cookieParsed[1];
             }
         }
-        
+
         return $cookiesFromHeaders + (isset($_COOKIES) ? $_COOKIES : []);
     }
 
@@ -145,6 +168,51 @@ class Request
         return $this->uri;
     }
 
+    public function getServer(): array
+    {
+        return $this->server;
+    }
+
+    protected function normalizeHeader(string $header): string
+    {
+        return str_replace('-', '_', strtoupper($header));
+    }
+
+    public function getHeaders(): array
+    {
+        return $this->headers;
+    }
+
+    public function hasHeader(string $header): bool
+    {
+        return isset($this->headers[$this->normalizeHeader($header)]);
+    }
+
+    public function getHeader(string $header): ?string
+    {
+        return $this->hasHeader($header) ? $this->headers[$this->normalizeHeader($header)] : null;
+    }
+
+    public function getCookies(): array
+    {
+        return $this->cookies;
+    }
+
+    public function hasCookie(string $cookie): bool
+    {
+        return isset($this->cookies[$cookie]);
+    }
+
+    public function getCookie(string $cookie): ?string
+    {
+        return $this->hasCookie($cookie) ? $this->cookies[$cookie] : null;
+    }
+
+    public function getFiles(): array
+    {
+        return $this->files;
+    }
+
     public function setUser($user)
     {
         $this->user = $user;
@@ -155,14 +223,34 @@ class Request
         return $this->user;
     }
 
+    public function getQuery(): array
+    {
+        return $this->query;
+    }
+
+    public function hasQuery($key): bool
+    {
+        return isset($this->query[$key]);
+    }
+
     public function query($key, $default = null)
     {
-        return isset($this->query[$key]) ? $this->query[$key] : $default;
+        return $this->hasQuery($key) ? $this->query[$key] : $default;
+    }
+
+    public function getRequest(): array
+    {
+        return $this->request;
+    }
+
+    public function hasRequest($key): bool
+    {
+        return isset($this->request[$key]);
     }
 
     public function request($key, $default = null)
     {
-        return isset($this->request[$key]) ? $this->request[$key] : $default;
+        return $this->hasRequest($key) ? $this->request[$key] : $default;
     }
 
     public function input($key, $default = null)
