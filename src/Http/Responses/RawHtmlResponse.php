@@ -2,9 +2,7 @@
 
 namespace PikaJew002\Handrolled\Http\Responses;
 
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
-
-class RawHtmlResponse extends HtmlResponse implements ResponseInterface
+class RawHtmlResponse extends HtmlResponse
 {
     public function __construct(string $rawHtmlBody)
     {

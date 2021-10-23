@@ -3,9 +3,8 @@
 namespace PikaJew002\Handrolled\Http\Responses;
 
 use PikaJew002\Handrolled\Http\Response;
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
-class JsonResponse extends Response implements ResponseInterface
+class JsonResponse extends Response
 {
     public function __construct(array $jsonBody, int $code = 200)
     {
