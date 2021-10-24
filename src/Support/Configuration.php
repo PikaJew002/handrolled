@@ -13,14 +13,24 @@ class Configuration
         $this->config = new Repository();
     }
 
-    public function getOrSet($input) {
+    public function getOrSet($input)
+    {
         if(is_array($input)) {
-            foreach($input as $key => $value) {
-                $this->config->set($key, $value);
-            }
-            return true;
+            $this->set($input);
         } else {
-            return $this->config->get($input);
+            return $this->get($input);
+        }
+    }
+
+    public function get($input)
+    {
+        return $this->config->get($input);
+    }
+
+    public function set(array $input): void
+    {
+        foreach($input as $key => $value) {
+            $this->config->set($key, $value);
         }
     }
 }
