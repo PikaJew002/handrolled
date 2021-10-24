@@ -95,7 +95,7 @@ class Container implements ContainerInterface
         return $reflection->newInstanceArgs($dependencies);
     }
 
-    public function getAlias($abstract): string
+    public function getAlias($abstract)
     {
         return isset($this->aliases[$abstract]) ? $this->getAlias($this->aliases[$abstract]) : $abstract;
     }
