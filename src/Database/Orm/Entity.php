@@ -50,7 +50,7 @@ abstract class Entity
      * @return Entity[]
      * @param $options = ["conditions" => [...], "order" => "..."]
      */
-    public static function find(array $options)
+    public static function find(array $options): array
     {
         $db = static::getDbInstance();
         $tableName = static::getTableName();
