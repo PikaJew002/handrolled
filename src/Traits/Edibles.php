@@ -27,15 +27,15 @@ trait Edibles
 
     public function setAuthEdible(Request $request, AuthManager $auth): void
     {
-        $cookieConfig = $auth->config->getOrSet('auth.drivers.cookies');
+        $cookieConfig = $auth->config->get('auth.drivers.cookies');
         setcookie(
             'puff_puff_pass',
             base64_encode(password_hash($this->getId(), PASSWORD_DEFAULT).'|'.$this->getPasswordHash()),
-            time() + $auth->config->getOrSet('auth.drivers.cookies.length'),
+            time() + $auth->config->get('auth.drivers.cookies.length'),
             '/',
             '',
-            $auth->config->getOrSet('auth.drivers.cookies.secure'),
-            $auth->config->getOrSet('auth.drivers.cookies.http_only')
+            $auth->config->get('auth.drivers.cookies.secure'),
+            $auth->config->get('auth.drivers.cookies.http_only')
         );
     }
 
@@ -47,8 +47,8 @@ trait Edibles
             time() - 3600,
             '/',
             '',
-            $auth->config->getOrSet('auth.drivers.cookies.secure'),
-            $auth->config->getOrSet('auth.drivers.cookies.http_only')
+            $auth->config->get('auth.drivers.cookies.secure'),
+            $auth->config->get('auth.drivers.cookies.http_only')
         );
     }
 }
