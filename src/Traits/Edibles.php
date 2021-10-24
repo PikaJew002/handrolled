@@ -7,25 +7,7 @@ use PikaJew002\Handrolled\Auth\Manager as AuthManager;
 
 trait Edibles
 {
-    public static function hasAuthEdible(Request $request): bool
-    {
-        return isset($request->cookies['puff_puff_pass']) && !is_null($request->cookies['puff_puff_pass']);
-    }
-
-    public static function matchesAuthEdible(Request $request): ?self
-    {
-        [$idHash, $passwordHash] = explode('|', base64_decode(urldecode($request->cookies['puff_puff_pass'])));
-
-        $user = self::find([
-            'conditions' => ['password_hash' => $passwordHash],
-        ]);
-        if(!empty($user) && password_verify($user[0]->getId(), $idHash)) {
-            return $user[0];
-        }
-        return null;
-    }
-
-    public function setAuthEdible(Request $request, AuthManager $auth): void
+    public function setAuthEdible(AuthManager $auth): void
     {
         $cookieConfig = $auth->config->get('auth.drivers.cookies');
         setcookie(
@@ -39,7 +21,7 @@ trait Edibles
         );
     }
 
-    public static function invalidateAuthEdible(AuthManager $auth)
+    public static function invalidateAuthEdible(AuthManager $auth): void
     {
         setcookie(
             'puff_puff_pass',
