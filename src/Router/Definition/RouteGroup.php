@@ -9,7 +9,7 @@ class RouteGroup
     protected array $definitions;
     protected array $lastDefined;
 
-    public function __construct(string $prefix)
+    public function __construct(string $prefix = '')
     {
         $this->prefix = $prefix;
         $this->definitions = [];
@@ -58,10 +58,19 @@ class RouteGroup
     {
         $this->lastDefined = [];
         $finalPrefix = $this->prefix . $prefix;
-        $group = new RouteGroup($finalPrefix);
+        $group = new self($finalPrefix);
         $callback($group);
         $this->definitions[] = $group;
         $this->lastDefined[] = $group;
+
+        return $this;
+    }
+
+    public function addExistingGroup(self $routeGroup): self
+    {
+        $this->lastDefined = [];
+        $this->definitions[] = $routeGroup;
+        $this->lastDefined[] = $routeGroup;
 
         return $this;
     }
