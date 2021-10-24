@@ -7,7 +7,7 @@ use FastRoute\Dispatcher;
 use function FastRoute\simpleDispatcher;
 use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Interfaces\Container;
-use PikaJew002\Handrolled\Router\Definition\RouteCollector;
+use PikaJew002\Handrolled\Interfaces\Response;
 use PikaJew002\Handrolled\Router\Definition\RouteGroup;
 
 class Router
@@ -23,18 +23,17 @@ class Router
         $this->route = new Route($container, ...$routeInfo);
     }
 
-    public function pipeRequestThroughToResponse(array $pipes)
+    public function pipeRequestThroughToResponse(): Response
     {
         $resolver = $this->route->resolver;
-        $pipes = array_merge($pipes, $this->route->middleware);
 
-        return (new Pipeline($this->container, $this->request, $pipes))
+        return (new Pipeline($this->container, $this->request, $this->route->middleware))
                 ->resolveToResponse(function($request) use ($resolver) {
                     return $resolver($request);
                 });
     }
 
-    public static function processRoutes(RouteCollector $routeCollector): Dispatcher
+    public static function processRoutes(RouteGroup $routeCollector): Dispatcher
     {
         return simpleDispatcher(function(FastRouteCollector $r) use ($routeCollector) {
             foreach($routeCollector->getDefinitions() as $definition) {
@@ -47,7 +46,7 @@ class Router
         });
     }
 
-    protected static function addRoutes($routeGroup, FastRouteCollector $r, RouteCollector $routeCollector): void
+    protected static function addRoutes($routeGroup, FastRouteCollector $r, RouteGroup $routeCollector): void
     {
         foreach($routeGroup->getDefinitions() as $definition) {
             if($definition instanceof RouteGroup) {
