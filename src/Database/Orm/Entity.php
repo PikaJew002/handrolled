@@ -176,11 +176,11 @@ abstract class Entity
         return [$classReflect->getName(), $properties];
     }
 
-    protected static function assertColumnsExist(array $columns, array $properties): void
+    protected static function assertColumnsExist(string $className, array $columns, array $properties): void
     {
         assert(
             static::doColumnsExists($columns, $properties),
-            new ModelPropertyNotFoundException($columnName, $classReflect->getName())
+            new ModelPropertyNotFoundException($columnName, $className)
         );
     }
 
@@ -200,7 +200,7 @@ abstract class Entity
 
         $columns = is_string($columns) ? [$columns] : $columns;
 
-        static::assertColumnsExist($columns, $properties);
+        static::assertColumnsExist($className, $columns, $properties);
 
         $queryBuilder = new QueryBuilder($className, static::getTableName(), static::getDbInstance());
 
@@ -213,7 +213,7 @@ abstract class Entity
     {
         [$className, $properties] = static::getClassAndProps();
 
-        static::assertColumnsExist([$columnName], $properties);
+        static::assertColumnsExist($className, [$columnName], $properties);
 
         $queryBuilder = new QueryBuilder($className, static::getTableName(), static::getDbInstance());
 
