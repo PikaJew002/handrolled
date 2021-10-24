@@ -7,12 +7,20 @@ use PikaJew002\Handrolled\Support\Configuration;
 
 class Manager
 {
-    public string $userClass;
     public Configuration $config;
 
-    public function __construct(User $user, Configuration $config)
+    public function __construct(Configuration $config)
     {
-        $this->userClass = get_class($user);
         $this->config = $config;
+    }
+
+    public function getUserClass(): ?string
+    {
+        return $this->config->get('auth.user');
+    }
+
+    public function getTokenClass(): ?string
+    {
+        return $this->config->get('auth.drivers.token.class');
     }
 }
