@@ -3,6 +3,7 @@
 namespace PikaJew002\Handrolled\Router;
 
 use PikaJew002\Handrolled\Interfaces\Container;
+use PikaJew002\Handrolled\Interfaces\Response;
 use PikaJew002\Handrolled\Http\Request;
 use Closure, Exception;
 
@@ -19,7 +20,9 @@ class Pipeline
         $this->pipes = $pipes;
     }
 
-    public function resolveToResponse(Closure $resolver)
+    // credit to Taylor Otwell (Laravel framework)
+    // https://github.com/laravel/framework/blob/8.x/src/Illuminate/Pipeline/Pipeline.php#L97
+    public function resolveToResponse(Closure $resolver): Response
     {
         $pipeline = array_reduce(
             array_reverse($this->getPipes()),
@@ -30,19 +33,19 @@ class Pipeline
         return $pipeline($this->request);
     }
 
-    public function getPipes()
+    public function getPipes(): array
     {
         return $this->pipes;
     }
 
-    protected function prepareResolver(Closure $resolver)
+    protected function prepareResolver(Closure $resolver): Closure
     {
         return function($request) use ($resolver) {
             return $resolver($request);
         };
     }
 
-    protected function carryFunc()
+    protected function carryFunc(): Closure
     {
         return function($stack, $pipe) {
             return function($request) use ($stack, $pipe) {
