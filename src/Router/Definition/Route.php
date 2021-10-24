@@ -3,6 +3,7 @@
 namespace PikaJew002\Handrolled\Router\Definition;
 
 use Closure;
+use Exception;
 
 class Route
 {
