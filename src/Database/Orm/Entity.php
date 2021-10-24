@@ -221,25 +221,4 @@ abstract class Entity
 
         return $queryBuilder;
     }
-
-    public static function whereEquals(string $columnName, $value)
-    {
-        $db = static::getDbInstance();
-        $tableName = static::getTableName();
-    }
-
-    public static function whereGreaterThan(string $columnName, $value)
-    {
-        //
-    }
-
-    public static function whereLessThan(string $columnName, $value)
-    {
-        //
-    }
-
-    public static function whereLike(string $columnName, $value)
-    {
-        //
-    }
 }
