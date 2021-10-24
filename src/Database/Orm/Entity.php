@@ -163,6 +163,18 @@ abstract class Entity
         return false;
     }
 
+    public function hasMany(string $relationClass, string $key): array
+    {
+        return $relationClass::find(['conditions' => [$key => $this->id]]);
+    }
+
+    public function belongsTo(string $relationClass, string $key): ?object
+    {
+        $belongsTo = $relationClass::find('conditions' => [$key => $this->id]);
+
+        return !empty($belongsTo) ? $belongsTo[0] : null;
+    }
+
     protected static function getClassAndProps(): array
     {
         $classReflect = new ReflectionClass(get_called_class());
