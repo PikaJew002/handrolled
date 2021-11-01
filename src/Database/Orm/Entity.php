@@ -26,7 +26,7 @@ abstract class Entity
     {
         $classReflect = new ReflectionClass(get_called_class());
         $classProperties = $classReflect->getDefaultProperties();
-        if(is_null(!isset($classProperties['tableName']))) {
+        if(!isset($classProperties['tableName'])) {
             throw new MalformedModelException($classReflect->getName());
         }
 
