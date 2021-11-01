@@ -21,5 +21,8 @@
         "psr-4": {
             "PikaJew002\\Handrolled\\": "src/"
         }
+    },
+    "require-dev": {
+        "pestphp/pest": "^1.20"
     }
 }
