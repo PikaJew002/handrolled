@@ -8,11 +8,11 @@ use PikaJew002\Handrolled\Interfaces\ResponseUsesApplication;
 
 class RedirectResponse extends Response implements ResponseUsesApplication
 {
-    public function __construct(string $redirectTo)
+    public function __construct(string $redirectTo, int $code = 303)
     {
         parent::__construct('', [
             'Location' => $redirectTo,
-        ], 303);
+        ], $code);
     }
 
     public function buildFromApp(Application $app): self
