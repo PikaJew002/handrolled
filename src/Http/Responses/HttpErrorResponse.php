@@ -14,7 +14,7 @@ class HttpErrorResponse extends Response
             'http_code' => $code,
             'http_message' => $message,
         ];
-        parent::__construct('', $headers, $code);
+        parent::__construct(['message' => $message], $headers, $code);
     }
 
     public function renderBody()

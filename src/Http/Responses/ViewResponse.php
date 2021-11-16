@@ -7,14 +7,14 @@ use PikaJew002\Handrolled\Interfaces\ResponseUsesApplication;
 use PikaJew002\Handrolled\Support\Configuration;
 use Twig\Environment;
 
-class ViewResponse extends RawHtmlResponse implements ResponseUsesApplication
+class ViewResponse extends HtmlResponse implements ResponseUsesApplication
 {
     protected string $template;
     protected array $props;
 
     public function __construct(string $template, array $props = [])
     {
-        parent::__construct('');
+        parent::__construct();
         $this->template = $template;
         $this->props = $props;
     }
@@ -24,10 +24,5 @@ class ViewResponse extends RawHtmlResponse implements ResponseUsesApplication
         $this->body = $app->get(Environment::class)->render($this->template, array_merge(['app' => $app->config('app')], $this->props));
 
         return $this;
-    }
-
-    public function renderBody()
-    {
-        echo $this->body;
     }
 }

@@ -6,18 +6,15 @@ use PikaJew002\Handrolled\Http\Response;
 
 class HtmlResponse extends Response
 {
-    public ?string $pathToFile;
-
-    public function __construct(string $pathToFile = null)
+    public function __construct(string $htmlBody = '')
     {
-        $this->pathToFile = $pathToFile;
-        parent::__construct('', [
+        parent::__construct($htmlBody, [
             'Content-Type' => 'text/html',
         ], 200);
     }
 
     public function renderBody()
     {
-        include($this->pathToFile);
+        echo $this->body;
     }
 }
