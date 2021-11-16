@@ -10,7 +10,7 @@ class Response implements ResponseInterface
     public array $headers;
     public int $responseCode;
 
-    public function __construct($body, array $headers, int $code = 200)
+    public function __construct($body, array $headers = [], int $code = 200)
     {
         $this->body = $body;
         $this->headers = $headers;
