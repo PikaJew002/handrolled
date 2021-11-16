@@ -59,7 +59,12 @@ class RouteGroup
         return $this->route('DELETE', $uri, $handler);
     }
 
-    public function addGroup(string $prefix, callable $callback): self
+    public function addGroup($prefix, callable $callback): self
+    {
+        return $this->group($prefix, $callback);
+    }
+
+    public function group($prefix, callable $callback): self
     {
         $this->lastDefined = [];
         $finalPrefix = $this->prefix . $prefix;
