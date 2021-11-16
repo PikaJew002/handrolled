@@ -7,12 +7,11 @@ use Throwable;
 
 class ExceptionHtmlResponse extends Response
 {
-    public Throwable $exception;
+    protected Throwable $exception;
 
     public function __construct(Throwable $exception)
     {
         $this->exception = $exception;
-
         parent::__construct('', [
             'Content-Type' => 'text/html',
         ], 200);
