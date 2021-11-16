@@ -19,7 +19,11 @@ class HttpErrorResponse extends Response
 
     public function renderBody()
     {
-        $error = $this->error;
-        include(__DIR__.'/../Views/error-page.php');
+        if($this->prefersJson()) {
+            parent::renderBody();
+        } else {
+            $error = $this->error;
+            include(__DIR__.'/../Views/error-page.php');
+        }
     }
 }
