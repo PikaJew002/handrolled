@@ -2,6 +2,9 @@
 
 namespace PikaJew002\Handrolled\Router\Definition;
 
+use Closure;
+use PikaJew002\Handrolled\Application\Application;
+
 class RouteGroup
 {
     protected string $prefix;
@@ -86,14 +89,27 @@ class RouteGroup
         return $this;
     }
 
-    public function middleware($middleware): void
+    public function middleware(...$middlewares): void
     {
         if(!empty($this->lastDefined)) {
-            $middleware = is_string($middleware) ? [$middleware] : $middleware;
+            $finalMiddleware = [];
+            foreach($middlewares as $middleware) {
+                if(is_string($middleware)) {
+                    $middlewareGroups = Application::getInstance()->config('route.middleware', []);
+                    $finalMiddleware = array_merge(
+                        $finalMiddleware,
+                        array_key_exists($middleware, $middlewareGroups) ? $middlewareGroups[$middleware] : [$middleware]
+                    );
+                } else {
+                    $finalMiddleware = array_merge($finalMiddleware, $middleware);
+                }
+            }
+            // to ensure a middleware is not applied more than once
+            $finalMiddleware = array_unique($finalMiddleware);
             foreach($this->lastDefined as $lastDefinition) {
                 foreach($this->definitions as $key => $definition) {
                     if($definition === $lastDefinition) {
-                        $this->definitions[$key] = $lastDefinition->addMiddleware($middleware);
+                        $this->definitions[$key] = $lastDefinition->addMiddleware($finalMiddleware);
                     }
                 }
             }
