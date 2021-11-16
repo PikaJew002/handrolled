@@ -297,7 +297,7 @@ class OtherMiddleware implements Middleware
 Generic exceptions will throw a 500 Sever Error with no other message if application has debug mode set to false.
 Otherwise, they will return an debug error page with the stack trace.
 
-The body of the `HttpException` or `ServerErrorResponse` will be JSON by default (with Reponse header `Content-Type: application/json`) as Handrolled is an API first framework.
+The body of the `HttpException` or `ServerErrorResponse` will be JSON by default (with Response header `Content-Type: application/json`) as Handrolled is an API first framework.
 
 You can change the default behavior with the configuration option `app.response_type` in `config/app.php`.
 
