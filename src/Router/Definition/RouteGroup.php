@@ -67,7 +67,8 @@ class RouteGroup
     public function group($prefix, callable $callback): self
     {
         $this->lastDefined = [];
-        $finalPrefix = $this->prefix . $prefix;
+        $callback = $prefix instanceof Closure ? $prefix : $callback;
+        $finalPrefix = is_string($prefix) ? $this->prefix . $prefix : $this->prefix;
         $group = new self($finalPrefix);
         $callback($group);
         $this->definitions[] = $group;
