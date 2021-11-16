@@ -3,9 +3,8 @@
 namespace PikaJew002\Handrolled\Http\Responses;
 
 use PikaJew002\Handrolled\Http\Response;
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
-class HttpErrorResponse extends Response implements ResponseInterface
+class HttpErrorResponse extends Response
 {
     protected array $error;
 
@@ -15,12 +14,16 @@ class HttpErrorResponse extends Response implements ResponseInterface
             'http_code' => $code,
             'http_message' => $message,
         ];
-        parent::__construct('', $headers, $code);
+        parent::__construct(['message' => $message], $headers, $code);
     }
 
     public function renderBody()
     {
-        $error = $this->error;
-        include(__DIR__.'/../Views/error-page.php');
+        if($this->prefersJson()) {
+            parent::renderBody();
+        } else {
+            $error = $this->error;
+            include(__DIR__.'/../Views/error-page.php');
+        }
     }
 }

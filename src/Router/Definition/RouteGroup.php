@@ -2,6 +2,9 @@
 
 namespace PikaJew002\Handrolled\Router\Definition;
 
+use Closure;
+use PikaJew002\Handrolled\Application\Application;
+
 class RouteGroup
 {
     protected string $prefix;
@@ -9,7 +12,7 @@ class RouteGroup
     protected array $definitions;
     protected array $lastDefined;
 
-    public function __construct(string $prefix)
+    public function __construct(string $prefix = '')
     {
         $this->prefix = $prefix;
         $this->definitions = [];
@@ -17,6 +20,11 @@ class RouteGroup
     }
 
     public function addRoute($methods, string $uri, $handler): self
+    {
+        return $this->route($methods, $uri, $handler);
+    }
+
+    public function route($methods, string $uri, $handler): self
     {
         $this->lastDefined = [];
         $finalUri = $this->prefix . $uri;
@@ -31,34 +39,40 @@ class RouteGroup
 
     public function get(string $uri, $handler): self
     {
-        return $this->addRoute('GET', $uri, $handler);
+        return $this->route('GET', $uri, $handler);
     }
 
     public function post(string $uri, $handler): self
     {
-        return $this->addRoute('POST', $uri, $handler);
+        return $this->route('POST', $uri, $handler);
     }
 
     public function put(string $uri, $handler): self
     {
-        return $this->addRoute('PUT', $uri, $handler);
+        return $this->route('PUT', $uri, $handler);
     }
 
     public function patch(string $uri, $handler): self
     {
-        return $this->addRoute('PATCH', $uri, $handler);
+        return $this->route('PATCH', $uri, $handler);
     }
 
     public function delete(string $uri, $handler): self
     {
-        return $this->addRoute('DELETE', $uri, $handler);
+        return $this->route('DELETE', $uri, $handler);
     }
 
-    public function addGroup(string $prefix, callable $callback): self
+    public function addGroup($prefix, callable $callback): self
+    {
+        return $this->group($prefix, $callback);
+    }
+
+    public function group($prefix, callable $callback): self
     {
         $this->lastDefined = [];
-        $finalPrefix = $this->prefix . $prefix;
-        $group = new RouteGroup($finalPrefix);
+        $callback = $prefix instanceof Closure ? $prefix : $callback;
+        $finalPrefix = is_string($prefix) ? $this->prefix . $prefix : $this->prefix;
+        $group = new self($finalPrefix);
         $callback($group);
         $this->definitions[] = $group;
         $this->lastDefined[] = $group;
@@ -66,14 +80,36 @@ class RouteGroup
         return $this;
     }
 
-    public function middleware($middleware): void
+    public function addExistingGroup(self $routeGroup): self
+    {
+        $this->lastDefined = [];
+        $this->definitions[] = $routeGroup;
+        $this->lastDefined[] = $routeGroup;
+
+        return $this;
+    }
+
+    public function middleware(...$middlewares): void
     {
         if(!empty($this->lastDefined)) {
-            $middleware = is_string($middleware) ? [$middleware] : $middleware;
+            $finalMiddleware = [];
+            foreach($middlewares as $middleware) {
+                if(is_string($middleware)) {
+                    $middlewareGroups = Application::getInstance()->config('route.middleware', []);
+                    $finalMiddleware = array_merge(
+                        $finalMiddleware,
+                        array_key_exists($middleware, $middlewareGroups) ? $middlewareGroups[$middleware] : [$middleware]
+                    );
+                } else {
+                    $finalMiddleware = array_merge($finalMiddleware, $middleware);
+                }
+            }
+            // to ensure a middleware is not applied more than once
+            $finalMiddleware = array_unique($finalMiddleware);
             foreach($this->lastDefined as $lastDefinition) {
                 foreach($this->definitions as $key => $definition) {
                     if($definition === $lastDefinition) {
-                        $this->definitions[$key] = $lastDefinition->addMiddleware($middleware);
+                        $this->definitions[$key] = $lastDefinition->addMiddleware($finalMiddleware);
                     }
                 }
             }

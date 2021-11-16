@@ -3,12 +3,11 @@
 namespace PikaJew002\Handrolled\Http\Responses\HttpErrors;
 
 use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
-class RequestTimeoutResponse extends HttpErrorResponse implements ResponseInterface
+class RequestTimeoutResponse extends HttpErrorResponse
 {
-    public function __construct($message = 'Request Timeout')
+    public function __construct(array $headers = [], string $message = 'Request Timeout')
     {
-        parent::__construct(408, $message);
+        parent::__construct(408, $message, $headers);
     }
 }

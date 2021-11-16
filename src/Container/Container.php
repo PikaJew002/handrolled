@@ -10,11 +10,20 @@ use ReflectionNamedType;
 class Container implements ContainerInterface
 {
     protected static $containerInstance;
-    protected array $objectBindings;
-    protected array $aliasBindings;
-    protected array $valueBindings;
+    protected array $factories;
+    protected array $instances;
+    protected array $singletons;
+    protected array $aliases;
 
-    public static function setInstance(ContainerInterface $container = null)
+    public function __construct()
+    {
+        $this->instances = [];
+        $this->factories = [];
+        $this->aliases = [];
+        $this->singletons = [];
+    }
+
+    public static function setInstance(?ContainerInterface $container = null)
     {
         return static::$containerInstance = $container;
     }
@@ -28,56 +37,75 @@ class Container implements ContainerInterface
         return static::$containerInstance;
     }
 
+    public function set($abstract, callable $factory): void
+    {
+        $this->factories[$abstract] = $factory;
+    }
+
+    public function hasFactory($abstract): bool
+    {
+        return isset($this->factories[$abstract]);
+    }
+
+    public function setAlias($alias, $abstract): void
+    {
+        $this->aliases[$alias] = $abstract;
+    }
+
+    public function hasAlias($alias): bool
+    {
+        return isset($this->aliases[$alias]);
+    }
+
+    public function registerSingletons($abstracts): void
+    {
+        foreach((array) $abstracts as $abstract) {
+            if(!$this->hasSingleton($abstract)) {
+                $this->singletons[] = $abstract;
+            }
+        }
+    }
+
+    public function hasSingleton($abstract): bool
+    {
+        return in_array($abstract, $this->singletons);
+    }
+
     public function get($abstract): object
     {
         // get object binding from alias(es), if present
         $abstract = $this->getAlias($abstract);
-        // Cheack for abstract in object bindings
-        if(isset($this->objectBindings[$abstract])) {
-            return $this->objectBindings[$abstract]($this);
+        // check for existing instance
+        if(isset($this->instances[$abstract])) {
+            return $this->instances[$abstract];
+        }
+        // check for abstract in object bindings
+        if(isset($this->factories[$abstract])) {
+            if(in_array($abstract, $this->singletons)) {
+                return $this->instances[$abstract] = $this->factories[$abstract]($this);
+            }
+            return $this->factories[$abstract]($this);
         }
         $reflection = new ReflectionClass($abstract);
         $dependencies = $this->buildDependencies($reflection, $abstract);
-        $this->set($abstract, function(self $c) use ($abstract, $dependencies) {
-            return new $abstract(...$dependencies);
-        });
+        if(in_array($abstract, $this->singletons)) {
+            return $this->instances[$abstract] = $reflection->newInstanceArgs($dependencies);
+        }
 
         return $reflection->newInstanceArgs($dependencies);
     }
 
-    public function getAlias(string $abstract): string
+    public function getAlias($abstract)
     {
-        return isset($this->aliasBindings[$abstract]) ? $this->getAlias($this->aliasBindings[$abstract]) : $abstract;
+        return isset($this->aliases[$abstract]) ? $this->getAlias($this->aliases[$abstract]) : $abstract;
     }
 
-    public function getValue($abstract, $pos)
+    public function flush(): void
     {
-        return $this->valueBindings[$abstract.':'.$pos];
-    }
-
-    public function hasValue($abstract, $pos): bool
-    {
-        return isset($this->valueBindings[$abstract.':'.$pos]);
-    }
-
-    public function setAlias($alias, $abstract): bool
-    {
-        $this->aliasBindings[$alias] = $abstract;
-        return true;
-    }
-
-    public function setValue($abstract, $pos, $value): void
-    {
-        if(isset($this->valueBindings[$abstract.':'.$pos])) {
-            return;
-        }
-
-        $this->valueBindings[$abstract.':'.$pos] = $value;
-    }
-
-    public function set($abstract, callable $factory)
-    {
-        $this->objectBindings[$abstract] = $factory;
+        $this->instances = [];
+        $this->factories = [];
+        $this->aliases = [];
+        $this->singletons = [];
     }
 
     protected function buildDependencies(ReflectionClass $reflection, string $abstract): array
@@ -88,14 +116,19 @@ class Container implements ContainerInterface
         }
         $parameters = [];
         foreach($constructor->getParameters() as $index => $param) {
+            if($param->isDefaultValueAvailable()) {
+                $parameters[] = $param->getDefaultValue();
+                continue;
+            }
             $parameterType = $param->getType();
             if(!($parameterType instanceof ReflectionNamedType)) {
                 // Union types are not supported
-                throw new Exception("Parameters must be type-hinted with class name. No union types allowed. Class: $abstract, ParamType: $parameterType");
+                $pos = $index + 1;
+                throw new Exception("Parameters must be type-hinted with class name. No union types allowed. Class: $abstract, Argument $pos, ParamType: $parameterType");
             }
-            if($param->isDefaultValueAvailable()) {
-                $params[] = $param->getDefaultValue();
-                continue;
+            if($parameterType->isBuiltin()) {
+                // type string|int|bool, etc
+
             }
             $parameters[] = $this->get($parameterType->getName());
         }

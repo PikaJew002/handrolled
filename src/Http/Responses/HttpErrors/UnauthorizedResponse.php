@@ -3,12 +3,11 @@
 namespace PikaJew002\Handrolled\Http\Responses\HttpErrors;
 
 use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
-class UnauthorizedResponse extends HttpErrorResponse implements ResponseInterface
+class UnauthorizedResponse extends HttpErrorResponse
 {
-    public function __construct(string $message = 'Unauthorized')
+    public function __construct(array $headers = [], string $message = 'Unauthorized')
     {
-        parent::__construct(401, $message);
+        parent::__construct(401, $message, $header);
     }
 }

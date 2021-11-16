@@ -3,74 +3,123 @@
 namespace PikaJew002\Handrolled\Application;
 
 use Dotenv\Dotenv;
-use Exception;
 use FastRoute\Dispatcher;
-use Illuminate\Config\Repository;
 use Illuminate\Support\Collection;
-use PDO;
+use PikaJew002\Handrolled\Application\Services;
 use PikaJew002\Handrolled\Container\Container;
-use PikaJew002\Handrolled\Database\Orm\Exceptions\DatabaseDriverException;
 use PikaJew002\Handrolled\Http\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
-use PikaJew002\Handrolled\Http\Response;
 use PikaJew002\Handrolled\Http\Responses\ExceptionHtmlResponse;
 use PikaJew002\Handrolled\Http\Responses\HttpErrors;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
-use PikaJew002\Handrolled\Interfaces\Database as DatabaseInterface;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
-use PikaJew002\Handrolled\Interfaces\User as UserInterface;
+use PikaJew002\Handrolled\Interfaces\Service as ServiceInterface;
 use PikaJew002\Handrolled\Router\Router;
 use PikaJew002\Handrolled\Support\Configuration;
-use ReflectionFunction;
-use ReflectionMethod;
 use Throwable;
-use Twig\Environment;
-use Twig\Loader\FilesystemLoader;
 
 class Application extends Container implements ContainerInterface
 {
-    public ?Throwable $exception = null;
-    protected $routeDispatcher;
     protected string $projectPath;
-    protected string $envPath;
     protected string $configPath;
-    protected array $objectBindings;
-    protected array $aliasBindings;
-    protected array $valueBindings;
-    protected Configuration $configBindings;
+    protected string $routesPath;
+    protected string $viewsPath;
+    protected string $cachePath;
+    protected array $services;
 
-    public function __construct(
-        string $projectPath = '../',
-        array $objectBindings = [],
-        array $aliasBindings = [],
-        array $valueBindings = [],
-        Configuration $configBindings = null
-    )
+    public function __construct(string $envPath = '../', string $configPath = '../config')
     {
-        if($projectPath === '') {
-            $projectPath = getcwd();
-        } else if(strlen($projectPath >= 1) && strncmp($projectPath, '/', 1) !== 0) {
-            $projectPath = getcwd().'/'.$projectPath;
-        }
-        $this->projectPath = realpath($projectPath);
-        $this->objectBindings = [];
-        $this->aliasBindings = [];
-        $this->valueBindings = [];
-        $this->configBindings = $configBindings ?? new Configuration();
-
-        $this->set(self::class, fn(self $app) => $app);
-        $this->set(Configuration::class, fn(self $app) => $app->getConfigBindings());
+        parent::__construct();
+        $this->loadEnvFile($envPath);
+        $this->loadConfiguration($configPath);
+        $this->projectPath = $this->setPath($this->config('app.paths.project'), getcwd());
+        $this->configPath = realpath($configPath);
+        $this->routesPath = $this->setPath($this->config('app.paths.routes'), $this->projectPath);
+        $this->viewsPath = $this->setPath($this->config('app.paths.views'), $this->projectPath);
+        $this->cachePath = $this->setPath($this->config('app.paths.cache'), $this->projectPath);
+        $this->services = $this->config('app.services', []);
         static::setInstance($this);
     }
 
-    public function handleRequest(): ResponseInterface
+    // just a shortcut to get/set from config repo
+    public function config($input, $default = null)
     {
-        return $this->routeTo($this->get(Request::class));
+        return $this->get(Configuration::class)->getOrSet($input, $default);
     }
 
-    protected function routeTo(Request $request): ResponseInterface
+    public function envIsProduction(): bool
     {
-        $routeInfo = $this->routeDispatcher->dispatch($request->input('_method', $request->method), $request->uri);
+        return $this->config('app.env') === 'production';
+    }
+
+    protected function setPath(string $path, string $base): string
+    {
+        if($path === '') {
+            return realpath($base);
+        } else if(strlen($path) > 0 && $this->isRelativePath($path)) {
+            return realpath($base . '/' . $path);
+        }
+
+        return realpath($path);
+    }
+
+    protected function isRelativePath(string $path): bool
+    {
+        return strncmp($path, '/', 1) !== 0;
+    }
+
+    protected function loadEnvFile(string $envPath): void
+    {
+        Dotenv::createImmutable(realpath($envPath))->load();
+    }
+
+    protected function loadConfiguration(string $configPath): void
+    {
+        $this->registerSingletons([
+            Configuration::class,
+        ]);
+        $configFiles = (new Collection(scandir($configPath)))->reject(function ($file) use ($configPath) {
+            return $file === '.' || $file === '..' || (!file_exists($configPath . '/' . $file));
+        })->mapWithKeys(function ($fileName) use ($configPath) {
+            return [explode('.', $fileName)[0] => require($configPath . '/' . $fileName)];
+        })->all();
+        $this->config($configFiles);
+    }
+
+    public function getProjectPath(): string
+    {
+        return $this->projectPath;
+    }
+
+    public function getConfigPath(): string
+    {
+        return $this->configPath;
+    }
+
+    public function getRoutesPath(): string
+    {
+        return $this->routesPath;
+    }
+
+    public function getViewsPath(): string
+    {
+        return $this->viewsPath;
+    }
+
+    public function getCachePath(): string
+    {
+        return $this->cachePath;
+    }
+
+    public function getServices(): array
+    {
+        return $this->services;
+    }
+
+    public function handleRequest(?Request $request = null): ResponseInterface
+    {
+        $request = !is_null($request) ? $request : $this->get(Request::class);
+        $routeInfo = $this->get(Dispatcher::class)->dispatch($request->input('_method', $request->getMethod()), $request->getUri());
         if($routeInfo[0] == Dispatcher::NOT_FOUND) {
             return new HttpErrors\NotFoundResponse();
         }
@@ -79,7 +128,7 @@ class Application extends Container implements ContainerInterface
         }
         try {
             $router = new Router($this, $request, $routeInfo);
-            return $router->pipeRequestThroughToResponse($this->config('route.middleware'));
+            return $router->pipeRequestThroughToResponse();
         } catch(HttpException $e) {
             return $this->convertHttpExceptionToResponse($e);
         } catch(Throwable $e) {
@@ -87,112 +136,54 @@ class Application extends Container implements ContainerInterface
         }
     }
 
-    // just a shortcut to get/set from config repo
-    public function config($input)
+    public function boot(?callable $callback = null): void
     {
-        return $this->configBindings->getOrSet($input);
-    }
-
-    // just a shortcut to get return config repo itself
-    public function getConfigBindings()
-    {
-        return $this->configBindings;
-    }
-
-    public function getProjectPath(): string
-    {
-        return $this->projectPath;
-    }
-
-    public function setEnvPath(string $envPath): void
-    {
-        $this->envPath = $envPath;
-    }
-
-    public function setConfigPath(string $configPath): void
-    {
-        $this->configPath = $configPath;
-    }
-
-    public function bootConfig(string $envPath = '', string $configPath = 'config'): void
-    {
-        if($envPath === '') {
-            $envPath = $this->projectPath;
-        } else if(strlen($envPath) >= 1 && strncmp($envPath, '/', 1) !== 0) {
-            $envPath = $this->projectPath.'/'.$envPath;
+        foreach($this->services as $service) {
+            $this->bootService(new $service($this));
         }
-        $this->envPath = realpath($envPath);
-        $dotenv = Dotenv::createImmutable($envPath);
-        $dotenv->load();
-        if($configPath === '') {
-            $configPath = $this->projectPath;
-        } else if(strlen($configPath) >= 1 && strncmp($configPath, '/', 1) !== 0) {
-            $configPath = $this->projectPath.'/'.$configPath;
-        }
-        $this->configPath = realpath($configPath);
-        $configFiles = (new Collection(scandir($configPath)))->reject(function($file) use ($configPath) {
-            return $file === '.' || $file === '..' || (! file_exists($configPath .'/'. $file));
-        })->mapWithKeys(function($fileName) use ($configPath) {
-            return [explode('.', $fileName)[0] => require($configPath .'/'. $fileName)];
-        })->all();
-        $this->config($configFiles);
+        $this->bootOther($callback);
     }
 
-    public function bootViews(string $viewsPath = 'resources/views', bool $useCache = false, string $cachePath = 'boot/cache/views'): void
+    public function bootService(ServiceInterface $serviceClass): void
     {
-        if($viewsPath === '') {
-            $viewsPath = $this->projectPath;
-        } else if(strlen($viewsPath) >= 1 && strncmp($viewsPath, '/', 1) !== 0) {
-            $viewsPath = $this->projectPath.'/'.$viewsPath;
+        try {
+            $serviceClass->boot();
+        } catch (Throwable $e) {
+            $this->convertExceptionToResponse($e)->render();
+            exit;
         }
-        if($useCache) {
-            if($cachePath === '') {
-                $cachePath = $this->projectPath;
-            } else if(strlen($cachePath) >= 1 && strncmp($cachePath, '/', 1) !== 0) {
-                $cachePath = $this->projectPath.'/'.$cachePath;
-            }
-        } else {
-            $cachePath = false;
-        }
-        $this->set(Environment::class, function($app) use ($viewsPath, $cachePath) {
-            return new Environment(new FilesystemLoader($viewsPath), ['cache' => $cachePath]);
-        });
     }
 
-    public function bootRoutes(string $routesPath = 'routes/api.php'): void
+    public function bootApplication(): void
     {
-        if($routesPath === '') {
-            $routesPath = $this->projectPath;
-        } else if(strlen($routesPath) >= 1 && strncmp($routesPath, '/', 1) !== 0) {
-            $routesPath = $this->projectPath.'/'.$routesPath;
-        }
-        $routeCollector = require realpath($routesPath);
-        $this->routeDispatcher = Router::processRoutes($routeCollector);
+        $this->bootService(new Services\ApplicationService($this));
     }
 
     public function bootDatabase(): void
     {
-        if(in_array($this->config('database.driver'), array_keys($this->config('database.drivers')))) {
-            $driver = $this->config('database.driver');
-            $dbConfig = $this->config("database.drivers.{$driver}");
-            $this->set($dbConfig['class'], function(ContainerInterface $c) use ($driver) {
-                  $class = $c->config("database.drivers.{$driver}.class");
-                  return new $class(
-                    $c->config("database.drivers.{$driver}.host"),
-                    $c->config("database.drivers.{$driver}.database"),
-                    $c->config("database.drivers.{$driver}.username"),
-                    $c->config("database.drivers.{$driver}.password")
-                );
-            });
-            $this->setAlias(DatabaseInterface::class, $dbConfig['class']);
-        } else {
-            $this->exception = new DatabaseDriverException($this->config('database.driver'), $this->exception);
-        }
+        $this->bootService(new Services\DatabaseService($this));
     }
 
     public function bootAuth(): void
     {
-        $this->setAlias(UserInterface::class, $this->config('auth.user'));
+        $this->bootService(new Services\AuthService($this));
+    }
+
+    public function bootRoutes(): void
+    {
+        $this->bootService(new Services\RouteService($this));
+    }
+
+    public function bootViews(): void
+    {
+        $this->bootService(new Services\ViewService($this));
+    }
+
+    public function bootOther(?callable $callback = null): void
+    {
+        if(!is_null($callback)) {
+            $callback($this);
+        }
     }
 
     protected function convertHttpExceptionToResponse(HttpException $e): ResponseInterface
@@ -209,24 +200,16 @@ class Application extends Container implements ContainerInterface
         if($e->httpCode === 408) {
             return new HttpErrors\RequestTimeoutResponse($e->errorMessage);
         }
+
         return new HttpErrors\ServerErrorResponse($e->errorMessage);
     }
 
     protected function convertExceptionToResponse(Throwable $e): ResponseInterface
     {
-        if($this->config('app.debug') === 'true') {
+        if($this->config('app.debug', false) === true) {
             return new ExceptionHtmlResponse($e);
         }
+
         return new HttpErrors\ServerErrorResponse();
-    }
-
-    public function hasBootExceptions(): bool
-    {
-        return !is_null($this->exception);
-    }
-
-    public function renderExceptions(): void
-    {
-        $this->convertExceptionToResponse($this->exception)->render();
     }
 }

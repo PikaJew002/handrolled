@@ -4,10 +4,10 @@ namespace PikaJew002\Handrolled\Router;
 
 use Closure;
 use Exception;
+use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Interfaces\Container;
 use PikaJew002\Handrolled\Interfaces\Response;
-use PikaJew002\Handrolled\Http\Request;
-use PikaJew002\Handrolled\Http\Responses\ViewResponse;
+use PikaJew002\Handrolled\Interfaces\ResponseUsesApplication;
 use ReflectionFunction;
 use ReflectionMethod;
 
@@ -17,45 +17,43 @@ class Route
     public array $middleware;
     public Closure $resolver;
 
-    public function __construct(Container $container, int $code, $handler, array $params)
+    public function __construct(Container $container, int $code, array $handler, array $params)
     {
         $this->container = $container;
         $this->middleware = $handler['middleware'];
         if(!is_null($handler['class']) && !is_null($handler['method'])) {
             $this->resolver = function(Request $request) use ($handler, $params) {
-                return $this->resolveFromClassMethod($request, $params, $handler['class'], $handler['method']);
+                return $this->buildResponse($this->resolveClassMethod($request, $params, $handler['class'], $handler['method']));
             };
         } else if(!is_null($handler['closure'])) {
             $this->resolver = function(Request $request) use ($handler, $params) {
-                return $this->resolveFromClosure($request, $params, $handler['closure']);
+                return $this->buildResponse($this->resolveClosure($request, $params, $handler['closure']));
             };
         } else {
             throw new Exception('Badly formed route. Handler array should have key class or closure.');
         }
     }
 
-    protected function resolveFromClosure(Request $request, array $params, Closure $closure): Response
+    protected function resolveClosure(Request $request, array $params, Closure $closure): Response
     {
         $closureParams = $this->getArgs((new ReflectionFunction($closure))->getParameters(), $params, $request);
-        $response = $closure(...$closureParams);
-        if($response instanceof ViewResponse) {
-            $response = $response->buildFromContainer($this->container);
-        }
 
-        return $response;
+        return $closure(...$closureParams);
     }
 
-    protected function resolveFromClassMethod(Request $request, array $params, string $class, string $method): Response
+    protected function resolveClassMethod(Request $request, array $params, string $class, string $method): Response
     {
         $methodParams = $this->getArgs((new ReflectionMethod($class, $method))->getParameters(), $params, $request);
-        $response = $method === '__invoke'
-                    ? $this->container->get($class)(...$methodParams)
-                    : $this->container->get($class)->$method(...$methodParams);
-        if($response instanceof ViewResponse) {
-            $response = $response->buildFromContainer($this->container);
+        if($method === '__invoke') {
+            return $this->container->get($class)(...$methodParams);
         }
 
-        return $response;
+        return $this->container->get($class)->$method(...$methodParams);
+    }
+
+    protected function buildResponse(Response $response): Response
+    {
+        return $response instanceof ResponseUsesApplication ? $response->buildFromApp($this->container) : $response;
     }
 
     protected function getArgs(array $reflectionParams = [], array $params = [], Request $request): array
