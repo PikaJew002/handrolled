@@ -13,18 +13,18 @@ class Configuration
         $this->config = new Repository();
     }
 
-    public function getOrSet($input)
+    public function getOrSet($input, $default = null)
     {
         if(is_array($input)) {
-            $this->set($input);
-        } else {
-            return $this->get($input);
+            return $this->set($input);
         }
+
+        return $this->get($input, $default);
     }
 
-    public function get($input)
+    public function get($input, $default = null)
     {
-        return $this->config->get($input);
+        return $this->config->get($input, $default);
     }
 
     public function set(array $input): void

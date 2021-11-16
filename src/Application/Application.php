@@ -37,14 +37,14 @@ class Application extends Container implements ContainerInterface
         $this->routesPath = $this->setPath($this->config('app.paths.routes'), $this->projectPath);
         $this->viewsPath = $this->setPath($this->config('app.paths.views'), $this->projectPath);
         $this->cachePath = $this->setPath($this->config('app.paths.cache'), $this->projectPath);
-        $this->services = !is_null($this->config('app.services')) ? $this->config('app.services') : [];
+        $this->services = $this->config('app.services', []);
         static::setInstance($this);
     }
 
     // just a shortcut to get/set from config repo
-    public function config($input)
+    public function config($input, $default = null)
     {
-        return $this->get(Configuration::class)->getOrSet($input);
+        return $this->get(Configuration::class)->getOrSet($input, $default);
     }
 
     public function envIsProduction(): bool
@@ -206,7 +206,7 @@ class Application extends Container implements ContainerInterface
 
     protected function convertExceptionToResponse(Throwable $e): ResponseInterface
     {
-        if($this->config('app.debug') === true) {
+        if($this->config('app.debug', false) === true) {
             return new ExceptionHtmlResponse($e);
         }
 
