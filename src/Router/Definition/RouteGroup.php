@@ -18,6 +18,11 @@ class RouteGroup
 
     public function addRoute($methods, string $uri, $handler): self
     {
+        return $this->route($methods, $uri, $handler);
+    }
+
+    public function route($methods, string $uri, $handler): self
+    {
         $this->lastDefined = [];
         $finalUri = $this->prefix . $uri;
         foreach((array) $methods as $method) {
@@ -31,27 +36,27 @@ class RouteGroup
 
     public function get(string $uri, $handler): self
     {
-        return $this->addRoute('GET', $uri, $handler);
+        return $this->route('GET', $uri, $handler);
     }
 
     public function post(string $uri, $handler): self
     {
-        return $this->addRoute('POST', $uri, $handler);
+        return $this->route('POST', $uri, $handler);
     }
 
     public function put(string $uri, $handler): self
     {
-        return $this->addRoute('PUT', $uri, $handler);
+        return $this->route('PUT', $uri, $handler);
     }
 
     public function patch(string $uri, $handler): self
     {
-        return $this->addRoute('PATCH', $uri, $handler);
+        return $this->route('PATCH', $uri, $handler);
     }
 
     public function delete(string $uri, $handler): self
     {
-        return $this->addRoute('DELETE', $uri, $handler);
+        return $this->route('DELETE', $uri, $handler);
     }
 
     public function addGroup(string $prefix, callable $callback): self
