@@ -6,8 +6,8 @@ use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
 
 class ServerErrorResponse extends HttpErrorResponse
 {
-    public function __construct(string $message = 'Server Error')
+    public function __construct(array $headers = [], string $message = 'Server Error')
     {
-        parent::__construct(500, $message);
+        parent::__construct(500, $message, $headers);
     }
 }
