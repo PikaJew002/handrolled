@@ -2,6 +2,7 @@
 
 namespace PikaJew002\Handrolled\Http;
 
+use PikaJew002\Handrolled\Application\Application;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
 class Response implements ResponseInterface
@@ -75,6 +76,12 @@ class Response implements ResponseInterface
 
     public function render()
     {
+        if(!$this->hasHeader('Content-Type')) {
+            $this->setHeader('Content-Type', Application::getInstance()->config('app.response_type', 'application/json'));
+        }
+        if($this->prefersJson()) {
+            $this->headers = array_merge(['Cache-Control' => 'no-cache, private'], $this->headers);
+        }
         http_response_code($this->responseCode);
         foreach($this->headers as $headerKey => $headerValue) {
             header($headerKey.': '.$headerValue);
