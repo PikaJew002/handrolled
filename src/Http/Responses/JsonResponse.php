@@ -3,7 +3,6 @@
 namespace PikaJew002\Handrolled\Http\Responses;
 
 use PikaJew002\Handrolled\Http\Response;
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
 class JsonResponse extends Response
 {
@@ -16,7 +15,7 @@ class JsonResponse extends Response
         );
     }
 
-    public static function make($code, array $body = [], array $headers = []): ResponseInterface
+    public static function make($code, array $body = [], array $headers = []): static
     {
         if(is_array($code)) {
             $headers = $body;
@@ -32,7 +31,7 @@ class JsonResponse extends Response
         return $instance->setBody(json_encode($body));
     }
 
-    public function with(array $body): ResponseInterface
+    public function with(array $body): static
     {
         return $this->setBody(json_encode($body));
     }

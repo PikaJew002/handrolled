@@ -47,7 +47,7 @@ class HttpErrorResponse extends Response
         return $this->isHtmlReponse || $this->config->get('app.response_type', 'application/json') === 'text/html';
     }
 
-    public function setCode(int $code): ResponseInterface
+    public function setCode(int $code): static
     {
         $this->code = $code;
         $this->resetBody();
@@ -60,7 +60,7 @@ class HttpErrorResponse extends Response
         return $this->message;
     }
 
-    public function setMessage(string $message): self
+    public function setMessage(string $message): static
     {
         $this->message = $message;
         $this->resetBody();

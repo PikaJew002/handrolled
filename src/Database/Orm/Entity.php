@@ -58,7 +58,7 @@ abstract class Entity
         return $primaryKey;
     }
 
-    public static function morph(array $row, ?ReflectionClass $classReflect = null): self
+    public static function morph(array $row, ?ReflectionClass $classReflect = null): static
     {
         $classReflect = $classReflect ?? static::getReflectionClass();
         $entity = $classReflect->newInstance();
@@ -88,7 +88,7 @@ abstract class Entity
         return (new QueryBuilder(static::getDatabaseConnection()))->table(static::getTableName())->setEntity(static::class);
     }
 
-    protected function insert(array $values): self
+    protected function insert(array $values): static
     {
         static::assertColumnsExist(array_keys($values));
         foreach($values as $propery => $value) {
@@ -162,7 +162,7 @@ abstract class Entity
         return (new static)->getQueryBuilder()->select()->get();
     }
 
-    protected static function find($id): ?object
+    protected static function find($id): ?static
     {
         return (new static)->where(static::getPrimaryKey(), $id)->first();
     }
@@ -186,5 +186,16 @@ abstract class Entity
                 throw new EntityPropertyNotFoundException($column, get_called_class());
             }
         }
+    }
+
+    public function toArray(): array
+    {
+        $properties = static::getProps();
+        $values = [];
+        foreach($properties as $property) {
+            $values[$property] = $this->{$property};
+        }
+
+        return $values;
     }
 }
