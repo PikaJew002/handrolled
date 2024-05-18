@@ -6,8 +6,8 @@ use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
 
 class NotFoundResponse extends HttpErrorResponse
 {
-    public function __construct(array $headers = [], string $message = 'Not Found')
+    public function setInitial(int $code = 404, string $message = 'Not Found'): void
     {
-        parent::__construct(404, $message, $headers);
+        parent::setInitial($code, $message);
     }
 }

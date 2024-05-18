@@ -2,52 +2,63 @@
 
 namespace PikaJew002\Handrolled\Http\Middleware;
 
-use PikaJew002\Handrolled\Auth\Manager as AuthManager;
-use PikaJew002\Handrolled\Http\Exceptions\HttpException;
+use PikaJew002\Handrolled\Auth\Encryption;
 use PikaJew002\Handrolled\Http\Request;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\UnauthorizedResponse;
 use PikaJew002\Handrolled\Http\Responses\RedirectResponse;
 use PikaJew002\Handrolled\Interfaces\Middleware;
 use PikaJew002\Handrolled\Interfaces\User;
+use Exception;
+use PikaJew002\Handrolled\Support\Configuration;
 
 class AuthenticateEdible implements Middleware
 {
-    protected AuthManager $auth;
+    protected Configuration $config;
 
-    public function __construct(AuthManager $auth)
+    protected Encryption $encryption;
+
+    protected RedirectResponse $redirectResponse;
+
+    protected UnauthorizedResponse $unauthorizedResponse;
+
+    public function __construct(Configuration $config, Encryption $encryption, RedirectResponse $redirectResponse, UnauthorizedResponse $unauthorizedResponse)
     {
-        $this->auth = $auth;
+        $this->config = $config;
+        $this->encryption = $encryption;
+        $this->redirectResponse = $redirectResponse;
+        $this->unauthorizedResponse = $unauthorizedResponse;
     }
 
     public function handler(Request $request, callable $next)
     {
-        $userClass = $this->auth->getUserClass();
-        if($this->hasAuthEdible($request)) {
-            [$idHash, $passwordHash] = explode('|', base64_decode(urldecode($request->getCookie('puff_puff_pass'))));
-            $user = $this->matchesAuthEdible($request, $userClass);
+        // if user is already set, we can assume the user has already been logged in
+        if(!is_null($request->user())) {
+            return $next($request);
+        }
+        // 
+        if($request->hasCookie('puff_puff_pass')) {
+            $user = $this->matchesAuthEdible($request->getCookie('puff_puff_pass'), $this->config->get('auth.user'));
             if(!is_null($user)) {
                 $request->setUser($user);
                 return $next($request);
             }
         }
+
         if($request->hasHeader('Accept') && in_array($request->getHeader('Accept'), ['application/json'])) {
-            throw new HttpException(401, 'Unauthorized');
-        } else {
-            return new RedirectResponse('/login?');
+            return $this->unauthorizedResponse;
         }
+
+        return $this->redirectResponse->to('/login?message=' . rawurlencode('Login to view that page'));
     }
 
-    public function hasAuthEdible(Request $request): bool
+    public function matchesAuthEdible($edible, string $userClass): ?User
     {
-        return $request->hasCookie('puff_puff_pass');
-    }
+        [$idEncrypted, $passwordHash] = explode('|', base64_decode($edible));
 
-    public function matchesAuthEdible(Request $request, string $userClass): ?User
-    {
-        [$idHash, $passwordHash] = explode('|', base64_decode(urldecode($request->getCookie('puff_puff_pass'))));
-        $user = $userClass::find([
-            'conditions' => ['password_hash' => $passwordHash],
-        ]);
+        if($id = $this->encryption->decrypt($idEncrypted)) {
+            return $userClass::where('id', $id)->where('password_hash', $passwordHash)->first();
+        }
 
-        return !empty($user) && password_verify($user[0]->getId(), $idHash) ? $user[0] : null;
+        throw new Exception();
     }
 }

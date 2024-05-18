@@ -2,235 +2,189 @@
 
 namespace PikaJew002\Handrolled\Database\Orm;
 
-use Exception;
-use PikaJew002\Handrolled\Database\Orm\Exceptions\MalformedModelException;
-use PikaJew002\Handrolled\Database\Orm\Exceptions\ModelPropertyNotFoundException;
-use PikaJew002\Handrolled\Application\Application;
-use PikaJew002\Handrolled\Interfaces\Database;
-use PikaJew002\Handrolled\Traits\UsesContainer;
+use DateTime;
+use PikaJew002\Handrolled\Database\Orm\Exceptions\MalformedEntityException;
+use PikaJew002\Handrolled\Database\Orm\Exceptions\EntityPropertyNotFoundException;
+use PikaJew002\Handrolled\Database\Orm\Exceptions\EntityNotFoundException;
+use PikaJew002\Handrolled\Database\Orm\Traits\UsesRelations;
+use PikaJew002\Handrolled\Database\Orm\Traits\UsesTimestamps;
+use PikaJew002\Handrolled\Database\Traits\UsesConnection;
 use ReflectionClass;
 use ReflectionProperty;
 
 abstract class Entity
 {
-    use UsesContainer;
+    use UsesConnection, UsesTimestamps, UsesRelations;
 
-    protected static string $connection = Database::class;
+    protected ?QueryBuilder $queryBuilder = null;
 
-    public static function getDbInstance(): Database
+    public static function __callStatic($name, $arguments)
     {
-        return static::getContainer()->get(static::$connection);
+        return (new static)->$name(...$arguments);
     }
 
-    public static function getTableName(): string
+    public function __call($name, $arguments)
     {
-        $classReflect = new ReflectionClass(get_called_class());
+        if(method_exists($this, $name)) {
+            return $this->$name(...$arguments);
+        }
+
+        return $this->getQueryBuilder()->$name(...$arguments);
+    }
+
+    protected static function getReflectionClass(): ReflectionClass
+    {
+        return new ReflectionClass(get_called_class());
+    }
+
+    public static function getTableName(?ReflectionClass $classReflect = null): string
+    {
+        $classReflect = $classReflect ?? static::getReflectionClass();
         $classProperties = $classReflect->getDefaultProperties();
         if(!isset($classProperties['tableName'])) {
-            throw new MalformedModelException($classReflect->getName());
+            throw new MalformedEntityException($classReflect->getName());
         }
 
         return $classProperties['tableName'];
     }
 
-    public static function morph(array $object): self
+    public static function getPrimaryKey(?ReflectionClass $classReflect = null): string
     {
-        $class = new ReflectionClass(get_called_class());
-        $entity = $class->newInstance();
-        foreach($class->getProperties(ReflectionProperty::IS_PUBLIC) as $prop) {
-            if(isset($object[$prop->getName()])) {
-                $prop->setValue($entity, $object[$prop->getName()]);
+        $classReflect = $classReflect ?? static::getReflectionClass();
+        $classProperties = $classReflect->getDefaultProperties();
+        $primaryKey = $classProperties['primaryKey'] ?? 'id';
+        static::assertColumnsExist([$primaryKey], $classReflect);
+
+        return $primaryKey;
+    }
+
+    public static function morph(array $row, ?ReflectionClass $classReflect = null): self
+    {
+        $classReflect = $classReflect ?? static::getReflectionClass();
+        $entity = $classReflect->newInstance();
+        foreach($classReflect->getProperties(ReflectionProperty::IS_PUBLIC) as $prop) {
+            if(isset($row[$prop->getName()])) {
+                $prop->setValue($entity, $row[$prop->getName()]);
             }
         }
 
         return $entity;
     }
 
-    /*
-     * @return Entity[]
-     * @param $options = ["conditions" => [...], "order" => "..."]
-     */
-    public static function find(array $options): array
+    public function getId(?ReflectionClass $classReflect = null)
     {
-        $db = static::getDbInstance();
-        $tableName = static::getTableName();
-        $query = "SELECT * FROM $tableName";
-        $params = [];
-        // options is array to parse into conditions/sort by
-        if(isset($options['conditions']) && !empty($options['conditions'])) {
-            $conditions = [];
-            foreach($options['conditions'] as $key => $value) {
-                $conditions[] = "$key = ?";
-                $params[] = $value;
+        $primaryKey = static::getPrimaryKey($classReflect);
+
+        return $this->{$primaryKey} ?? null;
+    }
+
+    protected function getQueryBuilder(): QueryBuilder
+    {
+        return $this->queryBuilder ?? $this->getFreshQueryBuilder();
+    }
+
+    protected function getFreshQueryBuilder(): QueryBuilder
+    {
+        return (new QueryBuilder(static::getDatabaseConnection()))->table(static::getTableName())->setEntity(static::class);
+    }
+
+    protected function insert(array $values): self
+    {
+        static::assertColumnsExist(array_keys($values));
+        foreach($values as $propery => $value) {
+            $this->{$propery} = $value;
+        }
+        $this->save();
+
+        return $this;
+    }
+
+    protected function update(array $values): void
+    {
+        $this->getQueryBuilder()->update($values);
+    }
+
+    protected function save(): void
+    {
+        $classReflect = static::getReflectionClass();
+        $primaryKey = static::getPrimaryKey($classReflect);
+        $propertiesMap = [];
+        foreach(static::getProps($classReflect) as $propName) {
+            if($propName !== $primaryKey && !empty($this->{$propName})) {
+                $propertiesMap[$propName] = $this->{$propName};
             }
-            $query .=" WHERE ".implode(" AND ", $conditions);
-        }
-        if(isset($options['order']) && !empty($options['order'])) {
-            $query .= " ORDER BY {$options['order']}";
-        }
-        $raw = $db->prepare($query);
-        $raw->execute($params);
-        $result = [];
-        foreach($raw as $rawRow) {
-            $result[] = static::morph($rawRow);
         }
 
-        return $result;
-    }
-
-    /*
-     * @return Entity
-     * @param $options = ["conditions" => [...], "order" => "..."]
-     */
-    public static function findById($id): ?self
-    {
-        $db = static::getDbInstance();
-        $tableName = static::getTableName();
-        $query = "SELECT * FROM $tableName WHERE id = ?";
-        $raw = $db->prepare($query);
-        $raw->execute([$id]);
-        foreach($raw as $rawRow) {
-            return static::morph($rawRow);
+        $primaryKeyValue = $this->getId($classReflect);
+        // do update
+        if(!is_null($primaryKeyValue)) {
+            $updatedAtProperty = $this->updatedTimestampProperty($classReflect);
+            if(!is_null($updatedAtProperty)) {
+                $propertiesMap[$updatedAtProperty] = (new DateTime)->format("Y-m-d H:i:s");
+            }
+            $this->getFreshQueryBuilder()->where($primaryKey, $primaryKeyValue)->update($propertiesMap);
         }
-        return null;
-    }
-
-    /*
-     * @return Entity[]
-     */
-    public static function all()
-    {
-        $db = static::getDbInstance();
-        $tableName = static::getTableName();
-        $raw = $db->query("SELECT * FROM $tableName");
-        $result = [];
-        foreach($raw as $rawRow) {
-            $result[] = static::morph($rawRow);
-        }
-
-        return $result;
-    }
-
-    public function save(): bool
-    {
-        $db = static::getDbInstance();
-        $tableName = static::getTableName();
-        $paramArray = [];
-        $propsArray = [];
-        foreach((new ReflectionClass($this))->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
-            $propName = $property->getName();
-            if($propName !== 'id') {
-                if(!empty($this->{$propName})) {
-                    $paramArray[] = $this->{$propName};
-                    $propsArray[] = "$propName = ?";
+        // do insert
+        else {
+            $primaryKeyValue = $this->getFreshQueryBuilder()->insertAndReturnId($propertiesMap);
+            $this->{$primaryKey} = $primaryKeyValue;
+            $hydratedProperties = array_filter([$this->createdTimestampProperty($classReflect), $this->updatedTimestampProperty($classReflect)]);
+            if(!empty($hydratedProperties)) {
+                $databaseValues = $this->getFreshQueryBuilder()->setEntity(null)->select(...$hydratedProperties)->where($primaryKey, $primaryKeyValue)->first();
+                $createdAt = $this->createdTimestampProperty($classReflect);
+                if(!is_null($createdAt) && array_key_exists($createdAt, $databaseValues)) {
+                    $this->{$createdAt} = $databaseValues[$createdAt];
+                }
+                $updatedAt = $this->updatedTimestampProperty($classReflect);
+                if(!is_null($updatedAt) && array_key_exists($updatedAt, $databaseValues)) {
+                    $this->{$updatedAt} = $databaseValues[$updatedAt];
                 }
             }
         }
-        $setClause = implode(', ', $propsArray);
-        if($this->id > 0) { // update query
-            return $this->update($db, $tableName, $setClause, $paramArray);
-        } else { // insery query
-            return $this->insert($db, $tableName, $setClause, $paramArray);
+    }
+
+    protected function delete(): void
+    {
+        $classReflect = static::getReflectionClass();
+        $primaryKey = static::getPrimaryKey($classReflect);
+        $primaryKeyValue = $this->getId($classReflect);
+        if(is_null($primaryKeyValue)) {
+            throw new EntityNotFoundException(static::getTableName($classReflect), $primaryKey, $primaryKeyValue);
         }
+        $this->getFreshQueryBuilder()->deleteWhere($primaryKey, $primaryKeyValue);
     }
 
-    protected function update($db, string $tableName, string $setClause, array $params): bool
+    /*
+     * @return Entity[]
+     */
+    protected static function all(): array
     {
-        return $db->prepare("UPDATE $tableName SET $setClause, updated_at = NOW() WHERE id = ?")
-                  ->execute(array_merge($params, [$this->id]));
+        return (new static)->getQueryBuilder()->select()->get();
     }
 
-    protected function insert($db, string $tableName, string $setClause, array $params): bool
+    protected static function find($id): ?object
     {
-        $db->prepare("INSERT INTO $tableName SET $setClause")->execute($params);
-        if($this->id = $db->lastInsertId('id')) {
-            foreach($db->query("SELECT created_at, updated_at FROM $tableName WHERE id = {$this->id}") as $result) {
-                $this->created_at = $result['created_at'];
-                $this->updated_at = $result['updated_at'];
-            }
-            return true;
-        }
-        return false;
+        return (new static)->where(static::getPrimaryKey(), $id)->first();
     }
 
-    public function delete(): bool
+    protected static function getProps(?ReflectionClass $classReflect = null): array
     {
-        $db = static::getDbInstance();
-        $tableName = static::getTableName();
-        if($this->id > 0) {
-            return $db->prepare("DELETE FROM $tableName WHERE id = ?")->execute([$this->id]);
-        }
-        return false;
-    }
+        $classReflect = $classReflect ?? static::getReflectionClass();
 
-    public function hasMany(string $relationClass, string $key): array
-    {
-        return $relationClass::find(['conditions' => [$key => $this->id]]);
-    }
-
-    public function belongsTo(string $relationClass, string $key): ?object
-    {
-        $belongsTo = $relationClass::find('conditions' => [$key => $this->id]);
-
-        return !empty($belongsTo) ? $belongsTo[0] : null;
-    }
-
-    protected static function getClassAndProps(): array
-    {
-        $classReflect = new ReflectionClass(get_called_class());
-
-        $properties = array_map(function($item) {
+        return array_map(function($item) {
                 return $item->getName();
             },
             $classReflect->getProperties(ReflectionProperty::IS_PUBLIC)
         );
-
-        return [$classReflect->getName(), $properties];
     }
 
-    protected static function assertColumnsExist(string $className, array $columns, array $properties): void
+    public static function assertColumnsExist(array $columns, ?ReflectionClass $classReflect = null): void
     {
-        assert(
-            static::doColumnsExists($columns, $properties),
-            new ModelPropertyNotFoundException($columnName, $className)
-        );
-    }
-
-    protected static function doColumnsExists(array $columns, array $properties): bool
-    {
+        $properties = static::getProps($classReflect);
         foreach($columns as $column) {
             if(!in_array($column, $properties)) {
-                return false;
+                throw new EntityPropertyNotFoundException($column, get_called_class());
             }
         }
-        return true;
-    }
-
-    public static function select($columns = []): QueryBuilder
-    {
-        [$className, $properties] = static::getClassAndProps();
-
-        $columns = is_string($columns) ? [$columns] : $columns;
-
-        static::assertColumnsExist($className, $columns, $properties);
-
-        $queryBuilder = new QueryBuilder($className, static::getTableName(), static::getDbInstance());
-
-        $queryBuilder->select($columns);
-
-        return $queryBuilder;
-    }
-
-    public static function where(string $columnName, string $operator, $value, string $boolean = 'AND'): QueryBuilder
-    {
-        [$className, $properties] = static::getClassAndProps();
-
-        static::assertColumnsExist($className, [$columnName], $properties);
-
-        $queryBuilder = new QueryBuilder($className, static::getTableName(), static::getDbInstance());
-
-        $queryBuilder->where($columnName, $operator, $value, $boolean);
-
-        return $queryBuilder;
     }
 }

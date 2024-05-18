@@ -6,8 +6,8 @@ use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
 
 class ForbiddenResponse extends HttpErrorResponse
 {
-    public function __construct(array $headers = [], string $message = 'Forbidden')
+    public function setInitial(int $code = 403, string $message = 'Forbidden'): void
     {
-        parent::__construct(403, $message, $headers);
+        parent::setInitial($code, $message);
     }
 }

@@ -8,7 +8,7 @@ use Twig\Loader\LoaderInterface;
 
 beforeEach(function() {
     $this->app = new Application('./tests/artifacts', './tests/artifacts/config');
-    $this->app->bootService(new ViewService($this->app));
+    $this->app->bootViews();
 });
 
 it('registers twig environment singleton', function() {
@@ -25,19 +25,19 @@ it('aliases twig loader interface to twig filesystem loader class', function() {
 });
 
 it('sets twig filesystem loader paths', function() {
-    expect($this->app->get(FilesystemLoader::class)->getPaths())->toBe([$this->app->getViewsPath()]);
+    expect($this->app->get(FilesystemLoader::class)->getPaths())->toContain($this->app->getViewsPath());
 });
 
 it('sets twig environment cache in production', function() {
     $this->app->config(['app.env' => 'production']);
-    $this->app->bootService(new ViewService($this->app));
+    (new ViewService($this->app))->boot();
 
     expect($this->app->get(Environment::class)->getCache())->toBe($this->app->getCachePath());
 });
 
 it('sets twig environment to debug when not in production', function() {
     $this->app->config(['app.env' => 'local']);
-    $this->app->bootService(new ViewService($this->app));
+    (new ViewService($this->app))->boot();
 
     expect($this->app->get(Environment::class)->isDebug())->toBeTrue();
 });

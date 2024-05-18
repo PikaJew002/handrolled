@@ -3,7 +3,7 @@
 namespace PikaJew002\Handrolled\Application\Services;
 
 use FastRoute\Dispatcher;
-use Illuminate\Support\Collection;
+use PikaJew002\Handrolled\Support\Collection;
 use PikaJew002\Handrolled\Application\Service;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
 use PikaJew002\Handrolled\Interfaces\Service as ServiceInterface;

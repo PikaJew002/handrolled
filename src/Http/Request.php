@@ -2,7 +2,10 @@
 
 namespace PikaJew002\Handrolled\Http;
 
-class Request
+use PikaJew002\Handrolled\Interfaces\Request as RequestInterface;
+use PikaJew002\Handrolled\Interfaces\User as AuthenticatableEntity;
+
+class Request implements RequestInterface
 {
     public const HTTP_GET = 'GET';
     public const HTTP_HEAD = 'HEAD';
@@ -17,10 +20,10 @@ class Request
     protected array $headers;
     protected array $request;
     protected array $query;
-    protected array $files;
     protected array $cookies;
-    protected $user;
+    protected array $files;
     protected $body;
+    protected ?AuthenticatableEntity $user = null;
 
     public function __construct(
         string $uri = '',
@@ -31,7 +34,7 @@ class Request
         array $query = [],
         array $cookies = [],
         array $files = [],
-        string $body = ''
+        $body = ''
     )
     {
         $this->method = $method;
@@ -45,23 +48,48 @@ class Request
         $this->cookies = $cookies;
     }
 
-    public static function createFromGlobals(): self
+    public static function createFromGlobals(?array $server = null, ?array $files = null, ?array $cookies = null, $body = null): self
     {
-        $uri = $_SERVER['REQUEST_URI'];
-        $method = strtoupper($_SERVER['REQUEST_METHOD']);
-        $server = $_SERVER;
+        if(is_null($server)) {
+            $server = $_SERVER;
+        }
+        if(is_null($files)) {
+            $files = isset($_FILES) ? $_FILES : [];
+        }
+        if(is_null($cookies)) {
+            $cookies = isset($_COOKIE) ? $_COOKIE : [];
+        }
+        if(is_null($body)) {
+            $body = file_get_contents('php://input');
+        }
+        $uri = self::parseURI($server['REQUEST_URI']);
+        $method = strtoupper($server['REQUEST_METHOD']);
         $headers = self::parseHeaders($server);
-        $body = file_get_contents('php://input');
-        $query = self::parseQuery($method, $uri);
+        $query = self::parseQuery($method, $server['REQUEST_URI']);
         $request = self::parseRequest($method, $headers, $body);
-        $files = self::parseFiles();
-        $cookies = self::parseCookies($headers);
+        $files = self::parseFiles($files);
+        $cookies = self::parseCookies($headers, $cookies);
         return new self($uri, $method, $server, $headers, $request, $query, $cookies, $files, $body);
     }
 
-    protected function parseURI(string $uri): string
+    public static function mock(
+        string $uri,
+        string $method = 'GET',
+        array $server = [],
+        array $headers = [],
+        array $request = [],
+        array $query = [],
+        array $cookies = [],
+        array $files = [],
+        $body = ''): self
     {
-        if(false !== $pos = strpos($uri, '?')) {
+        return new self($uri, $method, $server, $headers, $request, $query, $cookies, $files, $body);
+    }
+
+    protected static function parseURI(string $uri): string
+    {
+        $pos = strpos($uri, '?');
+        if($pos !== false) {
             $uri = substr($uri, 0, $pos);
         }
 
@@ -82,25 +110,12 @@ class Request
         return $headers;
     }
 
-    public function getBody()
-    {
-        if(is_resource($this->body)) {
-            rewind($this->body);
-            return stream_get_contents($this->body);
-        }
-        if($this->body === null || $this->body === false) {
-            $this->body = file_get_contents('php://input');
-        }
-
-        return $this->body;
-    }
-
     protected static function parseRequest(string $method, array $headers, string $body): array
     {
         if(
             $method === self::HTTP_POST &&
             array_key_exists('CONTENT_TYPE', $headers) &&
-            in_array($headers['CONTENT_TYPE'], ['application/x-www-form-urlencoded'])
+            in_array($headers['CONTENT_TYPE'], ['application/x-www-form-urlencoded', 'multipart/form-data'])
         ) {
             return isset($_POST) ? $_POST : [];
         }
@@ -120,17 +135,18 @@ class Request
         if($method === self::HTTP_GET) {
             return isset($_GET) ? $_GET : [];
         }
-        $components = parse_url($uri);
-        if(isset($components['query'])) {
+        $queryString = parse_url($uri, PHP_URL_QUERY);
+        if(!is_null($queryString)) {
             $queryArr = [];
-            foreach(explode('&', rawurldecode($components['query'])) as $query) {
+            foreach(explode('&', rawurldecode($queryString)) as $query) {
                 if(false !== strpos($query, '=')) {
-                    $pair = explode('=', $query);
-                    $queryArr[$pair[0]] = $pair[1];
+                    $keyValuePair = explode('=', $query);
+                    $queryArr[$keyValuePair[0]] = $keyValuePair[1];
                     continue;
                 }
                 $queryArr[$query] = '';
             }
+
             return $queryArr;
         }
 
@@ -154,8 +170,19 @@ class Request
                 $cookiesFromHeaders[$cookieParsed[0]] = $cookieParsed[1];
             }
         }
+        $cookiesFromGlobals = isset($_COOKIE) ? $_COOKIE : [];
 
-        return $cookiesFromHeaders + (isset($_COOKIES) ? $_COOKIES : []);
+        return $cookiesFromHeaders + $cookiesFromGlobals;
+    }
+
+    public function getBody()
+    {
+        if(is_resource($this->body)) {
+            rewind($this->body);
+            return stream_get_contents($this->body);
+        }
+
+        return $this->body;
     }
 
     public function getMethod(): string
@@ -193,6 +220,16 @@ class Request
         return $this->hasHeader($header) ? $this->headers[$this->normalizeHeader($header)] : null;
     }
 
+    public function acceptsJson(): bool
+    {
+        return $this->hasHeader('Accept') && $this->getHeader('Accept') === 'application/json';
+    }
+
+    public function acceptsHtml(): bool
+    {
+        return $this->hasHeader('Accept') && $this->getHeader('Accept') === 'text/html';
+    }
+
     public function getCookies(): array
     {
         return $this->cookies;
@@ -213,12 +250,14 @@ class Request
         return $this->files;
     }
 
-    public function setUser($user)
+    public function setUser(AuthenticatableEntity $user): RequestInterface
     {
         $this->user = $user;
+
+        return $this;
     }
 
-    public function user()
+    public function user(): ?AuthenticatableEntity
     {
         return $this->user;
     }
@@ -253,13 +292,18 @@ class Request
         return $this->hasRequest($key) ? $this->request[$key] : $default;
     }
 
+    public function all(): array
+    {
+        return array_merge($this->request, $this->query);
+    }
+
     public function input($key, $default = null)
     {
-        if($this->query($key) !== null) {
-            return $this->query($key, $default);
+        if($this->hasRequest($key)) {
+            return $this->request($key);
         }
-        if($this->request($key) !== null) {
-            return $this->request($key, $default);
+        if($this->hasQuery($key)) {
+            return $this->query($key);
         }
 
         return $default;

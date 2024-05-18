@@ -6,8 +6,8 @@ use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
 
 class BadRequestResponse extends HttpErrorResponse
 {
-    public function __construct(array $headers = [], string $message = 'Bad Request')
+    public function setInitial(int $code = 400, string $message = 'Bad Request'): void
     {
-        parent::__construct(400, $message, $headers);
+        parent::setInitial($code, $message);
     }
 }

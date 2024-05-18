@@ -6,14 +6,8 @@ use Exception, Throwable;
 
 class HttpException extends Exception
 {
-    public int $httpCode;
-    public string $errorMessage;
-
-    public function __construct(int $code, string $message, ?Throwable $e = null)
+    public function __construct(int $code = 500, ?string $message = null, ?Throwable $exception = null)
     {
-        $this->httpCode = $code;
-        $this->errorMessage = $message;
-
-        parent::__construct("Http $code: $message", $e);
+        parent::__construct($message ?? "HTTP {$code} Error", $code, $exception);
     }
 }

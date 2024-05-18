@@ -24,8 +24,8 @@
 |
 */
 
-expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
+expect()->extend('toContainString', function ($string) {
+    return expect(strpos($this->value, $string) !== false)->toBeTrue();
 });
 
 /*

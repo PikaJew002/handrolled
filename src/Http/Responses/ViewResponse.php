@@ -2,26 +2,26 @@
 
 namespace PikaJew002\Handrolled\Http\Responses;
 
-use PikaJew002\Handrolled\Application\Application;
-use PikaJew002\Handrolled\Interfaces\ResponseUsesApplication;
+use PikaJew002\Handrolled\Http\Response;
+use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 use PikaJew002\Handrolled\Support\Configuration;
-use Twig\Environment;
+use Twig\Environment as TwigEnvironment;
 
-class ViewResponse extends HtmlResponse implements ResponseUsesApplication
+class ViewResponse extends Response
 {
-    protected string $template;
-    protected array $props;
+    protected TwigEnvironment $twig;
+    protected Configuration $config;
 
-    public function __construct(string $template, array $props = [])
+    public function __construct(TwigEnvironment $twig, Configuration $config)
     {
-        parent::__construct();
-        $this->template = $template;
-        $this->props = $props;
+        $this->twig = $twig;
+        $this->config = $config;
+        parent::setIntial(200, ['Content-Type' => 'text/html']);
     }
 
-    public function buildFromApp(Application $app): self
+    public function use(string $template, array $props = []): ResponseInterface
     {
-        $this->body = $app->get(Environment::class)->render($this->template, array_merge(['app' => $app->config('app')], $this->props));
+        $this->body = $this->twig->render($template, array_merge(['app' => $this->config->get('app')], $props));
 
         return $this;
     }

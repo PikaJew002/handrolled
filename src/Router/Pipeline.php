@@ -2,10 +2,10 @@
 
 namespace PikaJew002\Handrolled\Router;
 
+use Closure;
+use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Interfaces\Container;
 use PikaJew002\Handrolled\Interfaces\Response;
-use PikaJew002\Handrolled\Http\Request;
-use Closure, Exception;
 
 class Pipeline
 {

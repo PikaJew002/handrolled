@@ -2,8 +2,6 @@
 
 namespace PikaJew002\Handrolled\Support;
 
-use Illuminate\Config\Repository;
-
 class Configuration
 {
     private Repository $config;

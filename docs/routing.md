@@ -74,7 +74,7 @@ The handler parameter can be a `Closure` (like is shown above) or an array with 
 // {project_dir}/routes/web.php
 use App\Http\Controllers\UsersController;
 
-$route->route('GET', '/users', [UsersController::class, 'index']);
+$route->get('/users', [UsersController::class, 'index']);
 
 // {project_dir}/src/Http/Controllers/UsersController.php
 namespace App\Http\Controllers;
@@ -97,16 +97,17 @@ Or an [invokable class](https://www.php.net/manual/en/language.oop5.magic.php#ob
 // {project_dir}/routes/web.php
 use App\Http\Controllers\InvokableController;
 
-$route->route('GET', '/users', InvokableController::class);
+$route->get('/users', InvokableController::class);
 
 // {project_dir}/src/Http/Controllers/InvokableController.php
 namespace App\Http\Controllers;
 
 use PikaJew002\Handrolled\Http\Response;
+use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
 class InvokableController
 {
-    public function __invoke(): Response
+    public function __invoke(): ResponseInterface
     {
         // ..
         return new Response(['message' => 'success']);
@@ -114,13 +115,18 @@ class InvokableController
 }
 ```
 
-A `Response` instance must be returned from the `Closure`, class method, or `__invoke` method on the invokable class. If you define route parameters in the URI of the route definition they must be defined as a parameter on the handler. Any type hinted (to s resolvable class instance) parameters in the handler will be resolved from the container after route parameters (if specified).
+Whichever route handler type you use, be it a `Closure`, a controller class method, or an invokable controller, the only requirement is that it resolves to/returns an instance of the `PikaJew002\Handrolled\Http\Response` class, another class that extends it, or a class that implements the `PikaJew002\Handrolled\Interfaces\Response` interface.
+
+To dive deeper into the response classes that are included out of the box, see more information in the [Responses section](/responses.md#responses).
+
+### Route Parameters
+
+If you define route parameters in the URI of the route definition they must be defined as a parameter on the handler.
 
 ```php
-use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 
-$route->get('/user/{id}', function($id, Request $request) {
+$route->get('/user/{id}', function($id) {
     // ..
     return new Response(['id' => $id]);
 });
@@ -131,10 +137,9 @@ By default `{id}` will match the regex `[^/]+` so that `/user/foo` will match `/
 You can specify your own regex, for example to only match numeric ids:
 
 ```php
-use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 
-$route->get('/user/{id:\d+}', function($id, Request $request) {
+$route->get('/user/{id:\d+}', function($id) {
     // ..
     return new Response(['id' => $id]);
 });
@@ -145,25 +150,62 @@ However there are limitations to this. For example, your regex cannot use captur
 To specify optional parts of a route, enclose the optional part(s) in `[...]`. Optional parts can be nested as well, but be sure to put all optional parts at the tail of the URI.
 
 ```php
-use PikaJew002\Handrolled\Http\Request;
 use PikaJew002\Handrolled\Http\Response;
 
 // will match /user/52 and /user/52/bob
-$route->get('/user/{id:\d+}[/{name}]', function($id, $name = null, Request $request) {
+$route->get('/user/{id:\d+}[/{name}]', function($id, $name = null) {
     // ..
     return new Response(['id' => $id, 'name' => $name]);
 });
 
 // will match /user, /user/52, /user/52/bob, and /user/52/bob/view
-$route->get('/user[/{id:\d+}[/{name}[/view]]]', function($id = null, $name = null, Request $request) {
+$route->get('/user[/{id:\d+}[/{name}[/view]]]', function($id = null, $name = null) {
     // ..
     return new Response(['id' => $id, 'name' => $name]);
 });
 ```
 
+Note how the order of the routes parameters matches the order they are defined in the `Closure`/method signature. These orders must match.
+
+Also, if you have route parameters in optional parts of the URI, be sure to give them default values in the `Closure`/method signature. If the optional part of the URI is not included the default value will be used instead.
+
 For full documentation on how route URIs are parsed, check out the [Fast Route documentation](https://github.com/nikic/FastRoute#defining-routes).
 
-If you have route parameters in optional parts of the URI, be sure to give them default values in the `Closure`/method signature. If the optional part of the URI is not included the default value will be used instead.
+### Other Parameters
+
+Besides route parameters (defined in the URI), you can include class type hinted parameters in the handler and they will be resolved from the container. Just remember to include them after any route parameters in the `Closure`/method signature. The most common case for this is the request instance for retrieving data from the request (`PikaJew002\Handrolled\Http\Request`). This could be query parameters, request headers, the body of the request, etc. To dive deeper into the request class, see more information in the [Requests section](/requests.md#requests).
+
+Another way to inject parameters (besides method injection of the `Closure`/method) that may be needed in the handler of the route is using constructor injection on the controller class itself. This works because the controller class (either a regular controller or invokable controller, both will work) is instantiated using the container, which will detect, instantiate, and inject dependencies into the constructor. Here's an example controller class:
+
+```php
+// {project_dir}/{project_src}/Http/Controllers/MyController.php
+namespace App\Http\Controllers;
+
+use App\Some\Dependency;
+use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
+use PikaJew002\Handrolled\Http\Request;
+use PikaJew002\Handrolled\Http\Response;
+
+class MyController
+{
+    protected Dependency $dependency;
+
+    // constructor dependency injection of a Dependency instance
+    public function __construct(Dependency $dependency)
+    {
+        $this->dependency = $dependency;
+    }
+
+    // method dependency injection of the Request instance
+    public function method(Request $request): ResponseInterface
+    {
+        // controller method code using $this->dependency
+        return new Response();
+    }
+}
+```
+
+This is useful for dependencies that are used in multiple controller methods to avoid putting it in each method signature.
 
 ## Route Groups
 
@@ -188,7 +230,7 @@ $route->group(function(RouteGroup $route) {
 });
 ```
 
-This man be useful if you want to group routes by the [middleware](#middleware) applied to them and don't want to prefix them.
+This may be useful if you don't want to add the middleware to each route individually, and instead want to apply a [middleware/middleware group](#middleware) to a route group.
 
 ## Middleware
 
@@ -201,7 +243,7 @@ use PikaJew002\Handrolled\Http\Middleware\AuthenticateToken;
 $route->post('/api/user', [UsersController::class, 'store'])->middleware(AuthenticateToken::class);
 ```
 
-Or on a route group (applied to all routes/route groups in the group):
+Or on a route group:
 
 ```php
 use App\Http\Controllers\UsersController;
@@ -220,6 +262,8 @@ $route->group('/api', function(RouteGroup $route) {
     OtherMiddleware::class,
 ]);
 ```
+
+
 
 Additionally, there is a built in mechanism for applying reusable groups of middleware by defining middleware groups in your `config/route.php` file.
 
@@ -269,7 +313,7 @@ $route->group('/api', function(RouteGroup $route) {
 });
 ```
 
-You can define and use your own middleware.
+You can also define and use your own middleware:
 
 ```php
 use Exception;
@@ -297,21 +341,8 @@ class OtherMiddleware implements Middleware
 Generic exceptions will throw a 500 Sever Error with no other message if application has debug mode set to false.
 Otherwise, they will return an debug error page with the stack trace.
 
-The body of the `HttpException` or `ServerErrorResponse` will be JSON by default (with Response header `Content-Type: application/json`) as Handrolled is an API first framework.
+To read more information on responses and what is shown when exceptions are thrown, read the [Responses](/responses.md#responses) page.
 
-You can change the default behavior with the configuration option `app.response_type` in `config/app.php`.
-
-```php
-// {project_dir}/config/app.php
-
-return [
-    // ..
-    // must be a valid mime-type
-    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type
-    'response_type' => 'text/html',
-    // ..
-];
-```
 
 <!-- Of course the type of `Response` instance returned from your controller will take precedence  -->
 
@@ -381,7 +412,7 @@ class User extends Entity implements UserInterface
     public $updated_at;
 
     // must be implemented for UserInterface
-    public function getId()
+    public function getPrimaryKey()
     {
         return $this->id;
     }

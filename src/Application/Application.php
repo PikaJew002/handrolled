@@ -4,17 +4,26 @@ namespace PikaJew002\Handrolled\Application;
 
 use Dotenv\Dotenv;
 use FastRoute\Dispatcher;
-use Illuminate\Support\Collection;
+use PikaJew002\Handrolled\Application\Exceptions\PathDefinitionException;
 use PikaJew002\Handrolled\Application\Services;
-use PikaJew002\Handrolled\Container\Container;
+use PikaJew002\Handrolled\Container;
 use PikaJew002\Handrolled\Http\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
-use PikaJew002\Handrolled\Http\Responses\ExceptionHtmlResponse;
-use PikaJew002\Handrolled\Http\Responses\HttpErrors;
+use PikaJew002\Handrolled\Http\Responses\ExceptionResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\BadRequestResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\UnauthorizedResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\ForbiddenResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\MethodNotAllowedResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\NotFoundResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\RequestTimeoutResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\ServerErrorResponse;
 use PikaJew002\Handrolled\Interfaces\Container as ContainerInterface;
+use PikaJew002\Handrolled\Interfaces\Request as RequestInterface;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 use PikaJew002\Handrolled\Interfaces\Service as ServiceInterface;
 use PikaJew002\Handrolled\Router\Router;
+use PikaJew002\Handrolled\Support\Collection;
 use PikaJew002\Handrolled\Support\Configuration;
 use Throwable;
 
@@ -24,20 +33,23 @@ class Application extends Container implements ContainerInterface
     protected string $configPath;
     protected string $routesPath;
     protected string $viewsPath;
+    protected string $packageViewsPath;
     protected string $cachePath;
     protected array $services;
 
-    public function __construct(string $envPath = '../', string $configPath = '../config')
+    public function __construct(string $envPath = '../', string $configPath = '../config', ?string $envFileName = null)
     {
         parent::__construct();
-        $this->loadEnvFile($envPath);
+        $this->loadEnvFile($envPath, $envFileName);
         $this->loadConfiguration($configPath);
         $this->projectPath = $this->setPath($this->config('app.paths.project'), getcwd());
         $this->configPath = realpath($configPath);
         $this->routesPath = $this->setPath($this->config('app.paths.routes'), $this->projectPath);
         $this->viewsPath = $this->setPath($this->config('app.paths.views'), $this->projectPath);
+        $this->packageViewsPath = $this->setPath($this->config('app.paths.handrolled_views', 'vendor/pikajew002/handrolled/src/Support/views'), $this->projectPath);
         $this->cachePath = $this->setPath($this->config('app.paths.cache'), $this->projectPath);
         $this->services = $this->config('app.services', []);
+        $this->loadApplication();
         static::setInstance($this);
     }
 
@@ -47,20 +59,52 @@ class Application extends Container implements ContainerInterface
         return $this->get(Configuration::class)->getOrSet($input, $default);
     }
 
+    protected function loadApplication()
+    {
+        $this->registerSingletons([
+            self::class,
+            Request::class,
+        ]);
+        $this->setAlias(RequestInterface::class, Request::class);
+        $this->set(Request::class, fn(ContainerInterface $app) => Request::createFromGlobals());
+        $this->set(HttpErrorResponse::class, function(ContainerInterface $app, ...$parameters) {
+            switch($parameters[0] ?? 500) {
+                case 400:
+                    return $app->get(BadRequestResponse::class);
+                    break;
+                case 401:
+                    return $app->get(UnauthorizedResponse::class);
+                    break;
+                case 403:
+                    return $app->get(ForbiddenResponse::class);
+                    break;
+                case 408:
+                    return $app->get(RequestTimeoutResponse::class);
+                    break;
+                case 500:
+                    return $app->get(ServerErrorResponse::class);
+                    break;
+                default:
+                    return $app->get(HttpErrorResponse::class, $parameters, false);
+            }
+        });
+        $this->setAlias(ContainerInterface::class, Container::class);
+        $this->setAlias(Container::class, self::class);
+        $this->set(self::class, fn(ContainerInterface $app) => static::getInstance());
+    }
+
     public function envIsProduction(): bool
     {
         return $this->config('app.env') === 'production';
     }
 
-    protected function setPath(string $path, string $base): string
+    private function setPath(string $path, string $base): string
     {
-        if($path === '') {
-            return realpath($base);
-        } else if(strlen($path) > 0 && $this->isRelativePath($path)) {
+        if(strlen($path) > 0 && $this->isRelativePath($path)) {
             return realpath($base . '/' . $path);
         }
 
-        return realpath($path);
+        throw new PathDefinitionException($path);
     }
 
     protected function isRelativePath(string $path): bool
@@ -68,9 +112,9 @@ class Application extends Container implements ContainerInterface
         return strncmp($path, '/', 1) !== 0;
     }
 
-    protected function loadEnvFile(string $envPath): void
+    protected function loadEnvFile(string $envPath, ?string $envFileName = null): void
     {
-        Dotenv::createImmutable(realpath($envPath))->load();
+        Dotenv::createImmutable(realpath($envPath), $envFileName)->load();
     }
 
     protected function loadConfiguration(string $configPath): void
@@ -79,7 +123,7 @@ class Application extends Container implements ContainerInterface
             Configuration::class,
         ]);
         $configFiles = (new Collection(scandir($configPath)))->reject(function ($file) use ($configPath) {
-            return $file === '.' || $file === '..' || (!file_exists($configPath . '/' . $file));
+            return is_dir($configPath . '/' . $file) || (!file_exists($configPath . '/' . $file));
         })->mapWithKeys(function ($fileName) use ($configPath) {
             return [explode('.', $fileName)[0] => require($configPath . '/' . $fileName)];
         })->all();
@@ -106,6 +150,11 @@ class Application extends Container implements ContainerInterface
         return $this->viewsPath;
     }
 
+    public function getPackageViewsPath(): string
+    {
+        return $this->packageViewsPath;
+    }
+
     public function getCachePath(): string
     {
         return $this->cachePath;
@@ -118,45 +167,51 @@ class Application extends Container implements ContainerInterface
 
     public function handleRequest(?Request $request = null): ResponseInterface
     {
-        $request = !is_null($request) ? $request : $this->get(Request::class);
-        $routeInfo = $this->get(Dispatcher::class)->dispatch($request->input('_method', $request->getMethod()), $request->getUri());
-        if($routeInfo[0] == Dispatcher::NOT_FOUND) {
-            return new HttpErrors\NotFoundResponse();
+        if(!is_null($request)) {
+            $this->set(Request::class, fn($app) => $request);
+        } else {
+            $request = $this->get(Request::class);
         }
-        if($routeInfo[0] == Dispatcher::METHOD_NOT_ALLOWED) {
-            return new HttpErrors\MethodNotAllowedResponse($routeInfo[1]);
+        $routeInfo = $this->get(Dispatcher::class)->dispatch($request->input('_method', $request->getMethod()), $request->getUri());
+        if($routeInfo[0] === Dispatcher::NOT_FOUND) {
+            return $this->get(NotFoundResponse::class);
+        }
+        if($routeInfo[0] === Dispatcher::METHOD_NOT_ALLOWED) {
+            return $this->get(MethodNotAllowedResponse::class, [$routeInfo[1]]);
         }
         try {
-            $router = new Router($this, $request, $routeInfo);
+            $router = new Router($this, $request, $routeInfo[1], $routeInfo[2]);
             return $router->pipeRequestThroughToResponse();
-        } catch(HttpException $e) {
-            return $this->convertHttpExceptionToResponse($e);
-        } catch(Throwable $e) {
-            return $this->convertExceptionToResponse($e);
+        } catch(HttpException $exception) {
+            return $this->get(HttpErrorResponse::class, [$exception->getCode(), $exception->getMessage()]);
+        } catch(Throwable $exception) {
+            if(!$this->config('app.debug', false)) {
+                return $this->get(ServerErrorResponse::class);
+            }
+            return $this->get(ExceptionResponse::class, [$exception]);
         }
     }
 
     public function boot(?callable $callback = null): void
     {
-        foreach($this->services as $service) {
-            $this->bootService(new $service($this));
+        try {
+            foreach($this->services as $service) {
+                $this->bootService($this->get($service));
+            }
+            $this->bootOther($callback);
+        } catch(Throwable $exception) {
+            if (!$this->config('app.debug', false)) {
+                $this->get(ServerErrorResponse::class)->render();
+            } else {
+                $this->get(ExceptionResponse::class, [$exception])->render();
+            }
+            if($this->config('app.env', 'production') !== 'testing') { exit; }
         }
-        $this->bootOther($callback);
     }
 
     public function bootService(ServiceInterface $serviceClass): void
     {
-        try {
-            $serviceClass->boot();
-        } catch (Throwable $e) {
-            $this->convertExceptionToResponse($e)->render();
-            exit;
-        }
-    }
-
-    public function bootApplication(): void
-    {
-        $this->bootService(new Services\ApplicationService($this));
+        $serviceClass->boot();
     }
 
     public function bootDatabase(): void
@@ -184,32 +239,5 @@ class Application extends Container implements ContainerInterface
         if(!is_null($callback)) {
             $callback($this);
         }
-    }
-
-    protected function convertHttpExceptionToResponse(HttpException $e): ResponseInterface
-    {
-        if($e->httpCode === 400) {
-            return new HttpErrors\BadRequestResponse($e->errorMessage);
-        }
-        if($e->httpCode === 401) {
-            return new HttpErrors\UnauthorizedResponse($e->errorMessage);
-        }
-        if($e->httpCode === 403) {
-            return new HttpErrors\ForbiddenResponse($e->errorMessage);
-        }
-        if($e->httpCode === 408) {
-            return new HttpErrors\RequestTimeoutResponse($e->errorMessage);
-        }
-
-        return new HttpErrors\ServerErrorResponse($e->errorMessage);
-    }
-
-    protected function convertExceptionToResponse(Throwable $e): ResponseInterface
-    {
-        if($this->config('app.debug', false) === true) {
-            return new ExceptionHtmlResponse($e);
-        }
-
-        return new HttpErrors\ServerErrorResponse();
     }
 }
