@@ -17,7 +17,7 @@ class ViewService extends Service implements ServiceInterface
             FilesystemLoader::class,
         ]);
         $this->app->setAlias(LoaderInterface::class, FilesystemLoader::class);
-        $this->app->get(FilesystemLoader::class)->setPaths([$this->app->getViewsPath()]);
+        $this->app->get(LoaderInterface::class)->setPaths([$this->app->getViewsPath(), $this->app->getPackageViewsPath()]);
         if($this->app->envIsProduction()) {
             $this->app->get(Environment::class)->setCache($this->app->getCachePath());
         } else {

@@ -2,9 +2,10 @@
 
 namespace PikaJew002\Handrolled\Database\Orm\Exceptions;
 
-use Exception, Throwable;
+use PikaJew002\Handrolled\Database\Exceptions\DatabaseException;
+use Throwable;
 
-class OrmException extends Exception
+class OrmException extends DatabaseException
 {
     public function __construct(string $message, ?Throwable $e = null)
     {

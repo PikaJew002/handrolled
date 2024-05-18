@@ -3,27 +3,78 @@
 namespace PikaJew002\Handrolled\Http\Responses;
 
 use PikaJew002\Handrolled\Http\Response;
+use PikaJew002\Handrolled\Interfaces\Request;
+use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
+use PikaJew002\Handrolled\Support\Configuration;
+use Twig\Environment as TwigEnvironment;
 
 class HttpErrorResponse extends Response
 {
-    protected array $error;
+    protected string $message;
+    protected bool $isHtmlReponse;
+    protected Configuration $config;
+    protected TwigEnvironment $twig;
 
-    public function __construct(int $code, string $message, array $headers = [])
+    public function __construct(Request $request, Configuration $config, TwigEnvironment $twig)
     {
-        $this->error = [
-            'http_code' => $code,
-            'http_message' => $message,
-        ];
-        parent::__construct(['message' => $message], $headers, $code);
+        $this->isHtmlReponse = $request->acceptsHtml();
+        $this->config = $config;
+        $this->twig = $twig;
+        $this->setInitial();
     }
 
-    public function renderBody()
+    public function setInitial(int $code = 500, string $message = 'Server Error'): void
     {
-        if($this->prefersJson()) {
-            parent::renderBody();
+        $this->message = $message;
+        $props = ['code' => $code, 'message' => $this->message];
+        if ($this->isHtmlResponse()) {
+            parent::setIntial(
+                $code,
+                ['Content-Type' => 'text/html'],
+                $this->twig->render('error-page.twig.html', $props)
+            );
         } else {
-            $error = $this->error;
-            include(__DIR__.'/../Views/error-page.php');
+            parent::setIntial(
+                $code,
+                ['Content-Type' => 'application/json', 'Cache-Control' => 'no-cache, private'],
+                json_encode($props)
+            );
+        }
+    }
+
+    private function isHtmlResponse(): bool
+    {
+        return $this->isHtmlReponse || $this->config->get('app.response_type', 'application/json') === 'text/html';
+    }
+
+    public function setCode(int $code): ResponseInterface
+    {
+        $this->code = $code;
+        $this->resetBody();
+
+        return $this;
+    }
+
+    public function getMessage(): string
+    {
+        return $this->message;
+    }
+
+    public function setMessage(string $message): self
+    {
+        $this->message = $message;
+        $this->resetBody();
+
+        return $this;
+    }
+
+    private function resetBody(): void
+    {
+        $props = ['code' => $this->code, 'message' => $this->message];
+        if ($this->isHtmlResponse()) {
+            $this->setBody($this->twig->render('error-page.twig.html', $props));
+        } else {
+            $this->setBody(json_encode($props));
         }
     }
 }

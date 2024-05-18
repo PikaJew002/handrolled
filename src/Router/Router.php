@@ -16,11 +16,11 @@ class Router
     protected Request $request;
     protected Route $route;
 
-    public function __construct(Container $container, Request $request, array $routeInfo)
+    public function __construct(Container $container, Request $request, array $handler, array $params)
     {
         $this->container = $container;
         $this->request = $request;
-        $this->route = new Route($container, ...$routeInfo);
+        $this->route = new Route($container, $handler, $params);
     }
 
     public function pipeRequestThroughToResponse(): Response

@@ -1,6 +1,6 @@
 <?php
 
-use PikaJew002\Handrolled\Container\Container;
+use PikaJew002\Handrolled\Container;
 use PikaJew002\Handrolled\Support\Configuration;
 
 beforeEach(function() {
@@ -9,6 +9,10 @@ beforeEach(function() {
 
 afterEach(function() {
     $this->container->flush();
+});
+
+it('sets instance of self', function() {
+    expect(Container::getInstance())->toBe($this->container);
 });
 
 it('gets instance', function() {
@@ -48,6 +52,14 @@ it('gets singleton instance', function() {
     expect($instance)->toBe($instance2);
 });
 
+it('has singleton instance', function () {
+    $this->container->registerSingletons(Configuration::class);
+    $instance = $this->container->get(Configuration::class);
+
+    expect($this->container->hasInstance(Configuration::class))->toBe(true);
+});
+
+
 it('sets alias', function() {
     $this->container->setAlias('config', Configuration::class);
 
@@ -59,3 +71,17 @@ it('gets alias', function() {
 
     expect($this->container->getAlias('config'))->toBe(Configuration::class);
 });
+
+it('builds dependencies with no constructor', function() {
+    class ClassWithNoContructor {}
+    $object = $this->container->get(ClassWithNoContructor::class);
+
+    expect($object)->toBeInstanceOf(ClassWithNoContructor::class);
+});
+
+it('throws Exception if constructor parameter is not type hinted', function() {
+    class ClassWithContructor {
+        public function __construct($parameter) {}
+    }
+    $this->container->get(ClassWithContructor::class);
+})->throws(Exception::class);

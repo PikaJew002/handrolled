@@ -1,6 +1,6 @@
 # Handrolled: a minimalist framework
 
-This project is a very minimalist framework for quickly getting an easily consumable API up and running in a few minutes.
+This project is a very minimalist framework for quickly getting an easily consumable API up and running in a few minutes. Or if you use Twig some server rendered content.
 It uses very few dependencies and the ones that have been pulled in are small and make the whole experience dope as hell.
 
 ## Background
@@ -11,7 +11,7 @@ Do yourself a favor and don't use this in a production level, enterprise app. It
 
 # Installation
 
-The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer install), then head over to the [docs](https://pikajew002.github.io/handrolled/) to learn more in-depth.
+The easiest way to get started quickly would be to clone the `PikaJew002/handrolled-project` repository and follow the few steps in the README (make empty directory, clone repo to directory, composer install), then head over to the [docs](https://pikajew002.github.io/handrolled/) to learn more in-depth (docs might be just a smidge out of date, they're a WIP).
 
 Alternatively, install like so.
 

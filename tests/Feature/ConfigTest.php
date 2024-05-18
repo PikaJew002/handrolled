@@ -6,10 +6,16 @@ beforeEach(function() {
     $this->config = new Configuration();
 });
 
-it('sets config value', function() {
+it('sets config value using set method', function() {
     $this->config->set([
-        'foo' => 'bar',
+        'foo.all' => 'bar',
     ]);
 
-    expect($this->config->get('foo'))->toBe('bar');
+    expect($this->config->get('foo.all'))->toBe('bar');
+});
+
+it('sets config value using getOrSet method', function() {
+    $this->config->getOrSet(['foo.all' => 'bar']);
+
+    expect($this->config->getOrSet('foo.all'))->toBe('bar');
 });

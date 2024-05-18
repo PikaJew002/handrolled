@@ -6,8 +6,8 @@ use PikaJew002\Handrolled\Http\Responses\HttpErrorResponse;
 
 class RequestTimeoutResponse extends HttpErrorResponse
 {
-    public function __construct(array $headers = [], string $message = 'Request Timeout')
+    public function setInitial(int $code = 408, string $message = 'Request Timeout'): void
     {
-        parent::__construct(408, $message, $headers);
+        parent::setInitial($code, $message);
     }
 }

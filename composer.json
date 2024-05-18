@@ -9,10 +9,10 @@
     ],
     "require": {
         "php": ">=7.4",
-        "illuminate/config": "^8.53",
         "nikic/fast-route": "^1.3",
         "vlucas/phpdotenv": "^5.3",
-        "twig/twig": "^3.0"
+        "twig/twig": "^3.0",
+        "doctrine/dbal": "^3.4"
     },
     "autoload": {
         "files": [
@@ -24,5 +24,10 @@
     },
     "require-dev": {
         "pestphp/pest": "^1.20"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }

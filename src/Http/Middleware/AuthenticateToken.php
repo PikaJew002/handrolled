@@ -2,37 +2,36 @@
 
 namespace PikaJew002\Handrolled\Http\Middleware;
 
-use PikaJew002\Handrolled\Auth\Manager as AuthManager;
-use PikaJew002\Handrolled\Http\Exceptions\HttpException;
 use PikaJew002\Handrolled\Http\Request;
-use PikaJew002\Handrolled\Http\Responses\RedirectResponse;
+use PikaJew002\Handrolled\Http\Responses\HttpErrors\UnauthorizedResponse;
 use PikaJew002\Handrolled\Interfaces\Middleware;
 use PikaJew002\Handrolled\Interfaces\Token;
+use PikaJew002\Handrolled\Support\Configuration;
 
 class AuthenticateToken implements Middleware
 {
-    protected AuthManager $auth;
+    protected Configuration $config;
 
-    public function __construct(AuthManager $auth)
+    protected UnauthorizedResponse $response;
+
+    public function __construct(Configuration $config, UnauthorizedResponse $response)
     {
-        $this->auth = $auth;
+        $this->config = $config;
+        $this->response = $response;
     }
 
     public function handler(Request $request, callable $next)
     {
-        $tokenClass = $this->auth->getTokenClass();
+        // $tokenClass = $this->config->get('auth.drivers.token.class');
         if($this->hasAuthToken($request)) {
-            $token = $this->matchesAuthToken($request, $tokenClass);
+            $token = $this->matchesAuthToken($request, $this->config->get('auth.drivers.token.class'));
             if(!is_null($token)) {
                 $request->setUser($token->user());
                 return $next($request);
             }
         }
-        if($request->hasHeader('Accept') && in_array($request->getHeader('Accept'), ['application/json'])) {
-            throw new HttpException(401, 'Unauthorized');
-        } else {
-            return new RedirectResponse('/login');
-        }
+
+        return $this->response;
     }
 
     public function hasAuthToken(Request $request): bool
@@ -43,10 +42,11 @@ class AuthenticateToken implements Middleware
     public function matchesAuthToken(Request $request, string $tokenClass): ?Token
     {
         $tokenValue = base64_decode(urldecode(str_replace('Bearer ', '', $request->getHeader('Authorization'))));
-        $token = $tokenClass::find([
-            'conditions' => ['token' => $tokenValue],
-        ]);
+        $token = $tokenClass::where('token', $tokenValue)->first();
+        if(is_null($token) || !$token->isValid()) {
+            return null;
+        }
 
-        return !empty($token) && $token[0]->isValid() ? $token[0] : null;
+        return $token;
     }
 }
