@@ -1,6 +1,16 @@
 {
     "name": "pikajew002/handrolled",
     "description": "A minimalist, bare-bones framework for building small, dope handrolled PHP projects",
+    "keywords": [
+        "framework",
+        "handrolled"
+    ],
+    "homepage": "https://pikajew002.github.io/handrolled/#/",
+    "license": "MIT",
+    "support": {
+        "issues": "https://github.com/PikaJew002/handrolled/issues",
+        "source": "https://github.com/PikaJew002/handrolled"
+    },
     "authors": [
         {
             "name": "Aaron Eisenberg",
