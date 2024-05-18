@@ -3,7 +3,6 @@
 namespace PikaJew002\Handrolled\Http\Responses;
 
 use PikaJew002\Handrolled\Http\Response;
-use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 use PikaJew002\Handrolled\Support\Configuration;
 
 class RedirectResponse extends Response
@@ -19,7 +18,7 @@ class RedirectResponse extends Response
         );
     }
 
-    public function to(string $redirectTo): ResponseInterface
+    public function to(string $redirectTo): static
     {
         $appUrl = $this->config->get('app.url');
         if(strlen($redirectTo) > 0) {

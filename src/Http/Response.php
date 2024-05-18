@@ -2,7 +2,6 @@
 
 namespace PikaJew002\Handrolled\Http;
 
-use Closure;
 use PikaJew002\Handrolled\Http\Exceptions\ResponseHeaderException;
 use PikaJew002\Handrolled\Interfaces\Response as ResponseInterface;
 
@@ -37,7 +36,7 @@ class Response implements ResponseInterface
         return array_key_exists($this->normalizeHeader($header), $this->headers);
     }
 
-    public function setHeader($headerKey, ?string $headerValue = null): ResponseInterface
+    public function setHeader($headerKey, ?string $headerValue = null): static
     {
         if(is_null($headerValue) && is_array($headerKey)) {
             foreach($headerKey as $key => $value) {
@@ -73,7 +72,7 @@ class Response implements ResponseInterface
         return ucfirst(strtolower($header));
     }
 
-    public function setCode(int $code): ResponseInterface
+    public function setCode(int $code): static
     {
         $this->code = $code;
 
@@ -85,7 +84,7 @@ class Response implements ResponseInterface
         return $this->code;
     }
 
-    public function setBody($body): ResponseInterface
+    public function setBody($body): static
     {
         $this->body = $body;
 
